@@ -1,15 +1,30 @@
 import { Zap, Calendar, ExternalLink } from "lucide-react";
 import { shortenAddress } from "@/lib/utils";
+import Image from "next/image";
 
 interface ProfileHeaderProps {
-  walletAddress: string;
+  walletAddress?: string | null;
+  username?: string | null;
+  avatarUrl?: string | null;
+  karma?: number;
+  joinDate?: string | null;
+  bio?: string;
 }
 
-export default function ProfileHeader({ walletAddress }: ProfileHeaderProps) {
-  const joinDate = new Date().toLocaleDateString("en-US", {
-    month: "short",
-    year: "numeric",
-  });
+export default function ProfileHeader({
+  walletAddress,
+  username,
+  avatarUrl,
+  karma = 0,
+  joinDate,
+  bio,
+}: ProfileHeaderProps) {
+  const formattedJoin = joinDate
+    ? new Date(joinDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+    : new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" });
+
+  const displayName = username ?? (walletAddress ? shortenAddress(walletAddress) : "Anonymous");
+  const initials = (username ?? (walletAddress ? walletAddress.slice(2, 4) : "AN")).slice(0, 2).toUpperCase();
 
   return (
     <div
@@ -24,33 +39,49 @@ export default function ProfileHeader({ walletAddress }: ProfileHeaderProps) {
 
       <div className="px-5 pb-5">
         <div className="flex items-end gap-4 -mt-8 mb-4">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white border-4 flex-shrink-0"
-            style={{
-              background: "linear-gradient(135deg, #7c3aed, #2563eb)",
-              borderColor: "var(--surface)",
-            }}>
-            {walletAddress.slice(2, 4).toUpperCase()}
-          </div>
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={displayName}
+              width={64}
+              height={64}
+              className="w-16 h-16 rounded-2xl object-cover border-4 flex-shrink-0"
+              style={{ borderColor: "var(--surface)" }}
+            />
+          ) : (
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white border-4 flex-shrink-0"
+              style={{
+                background: "linear-gradient(135deg, #7c3aed, #2563eb)",
+                borderColor: "var(--surface)",
+              }}>
+              {initials}
+            </div>
+          )}
 
           <div className="pb-1 flex-1 min-w-0">
             <h1 className="text-lg font-bold" style={{ color: "var(--foreground)" }}>
-              {shortenAddress(walletAddress)}
+              {displayName}
             </h1>
-            <div className="flex items-center gap-1.5">
-              <span
-                className="text-xs font-mono truncate max-w-[220px]"
-                style={{ color: "var(--muted)" }}>
-                {walletAddress}
-              </span>
-              <a
-                href={`https://etherscan.io/address/${walletAddress}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:opacity-70 transition-opacity flex-shrink-0">
-                <ExternalLink size={10} style={{ color: "var(--muted)" }} />
-              </a>
-            </div>
+            {walletAddress && (
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="text-xs font-mono truncate max-w-[220px]"
+                  style={{ color: "var(--muted)" }}>
+                  {walletAddress}
+                </span>
+                <a
+                  href={`https://etherscan.io/address/${walletAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:opacity-70 transition-opacity flex-shrink-0">
+                  <ExternalLink size={10} style={{ color: "var(--muted)" }} />
+                </a>
+              </div>
+            )}
+            {bio && (
+              <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--muted)" }}>{bio}</p>
+            )}
           </div>
 
           <button
@@ -63,7 +94,7 @@ export default function ProfileHeader({ walletAddress }: ProfileHeaderProps) {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <StatBox
             label="Karma"
-            value="0"
+            value={karma.toLocaleString()}
             icon={<span className="text-sm">⭐</span>}
             color="#fb923c"
           />
@@ -75,7 +106,7 @@ export default function ProfileHeader({ walletAddress }: ProfileHeaderProps) {
           />
           <StatBox
             label="Member since"
-            value={joinDate}
+            value={formattedJoin}
             icon={<Calendar size={14} style={{ color: "#60a5fa" }} />}
             color="#60a5fa"
           />

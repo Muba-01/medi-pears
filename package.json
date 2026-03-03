@@ -1,5 +1,5 @@
 {
-  "name": "medpear",
+  "name": "medipear",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -14,10 +14,14 @@
     "ethers": "^6.16.0",
     "jose": "^6.1.3",
     "lucide-react": "^0.575.0",
+    "mongodb": "^7.1.0",
+    "mongoose": "^9.2.3",
     "next": "16.1.6",
+    "next-auth": "^4.24.13",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

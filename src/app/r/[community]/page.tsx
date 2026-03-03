@@ -2,6 +2,9 @@ import Link from "next/link";
 import PostList from "@/components/posts/PostList";
 import Sidebar from "@/components/layout/Sidebar";
 import { Users, FileText, Plus } from "lucide-react";
+import { getCommunityBySlug } from "@/services/communityService";
+import { getPosts } from "@/services/postService";
+import type { Post } from "@/lib/types";
 
 interface PageProps {
   params: Promise<{ community: string }>;
@@ -9,6 +12,18 @@ interface PageProps {
 
 export default async function CommunityPage({ params }: PageProps) {
   const { community: slug } = await params;
+
+  let community = null;
+  let posts: Post[] = [];
+  try {
+    [community, posts] = await Promise.all([
+      getCommunityBySlug(slug),
+      getPosts({ communitySlug: slug, sort: "hot" }),
+    ]);
+  } catch { /* DB not ready */ }
+
+  const memberCount = community?.membersCount ?? 0;
+  const description = community?.description || `A community for ${slug} discussions.`;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -39,20 +54,20 @@ export default async function CommunityPage({ params }: PageProps) {
                 r/{slug}
               </h1>
               <p className="text-sm mb-2" style={{ color: "var(--muted)" }}>
-                A community for {slug} discussions.
+                {description}
               </p>
               <div className="flex items-center gap-4">
                 <div
                   className="flex items-center gap-1.5 text-sm"
                   style={{ color: "var(--muted)" }}>
                   <Users size={14} />
-                  <span>0 members</span>
+                  <span>{memberCount.toLocaleString()} members</span>
                 </div>
                 <div
                   className="flex items-center gap-1.5 text-sm"
                   style={{ color: "var(--muted)" }}>
                   <FileText size={14} />
-                  <span>0 posts</span>
+                  <span>{posts.length} posts</span>
                 </div>
               </div>
             </div>
@@ -76,7 +91,7 @@ export default async function CommunityPage({ params }: PageProps) {
 
       <div className="flex gap-6">
         <div className="flex-1 min-w-0">
-          <PostList posts={[]} showSortBar />
+          <PostList posts={posts} showSortBar />
         </div>
         <Sidebar />
       </div>

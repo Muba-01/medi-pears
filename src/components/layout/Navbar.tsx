@@ -5,9 +5,12 @@ import Link from "next/link";
 import { Search, Zap, Bell, Menu, X, LogOut, User, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { shortenAddress } from "@/lib/utils";
+import Image from "next/image";
 
 export default function Navbar() {
-  const { isAuthenticated, isLoading, walletAddress, login, logout, error } = useAuth();
+  const { isAuthenticated, isLoading, walletAddress, userId, username, avatarUrl, provider, login, loginWithGoogle, logout, error } = useAuth();
+  const [authMenuOpen, setAuthMenuOpen] = useState(false);
+  const displayName = username ?? (walletAddress ? shortenAddress(walletAddress) : null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -33,7 +36,7 @@ export default function Navbar() {
             <Zap size={14} className="text-white" />
           </div>
           <span className="font-bold text-base hidden sm:block" style={{ color: "var(--foreground)" }}>
-            MedPear
+            Medipear
           </span>
         </Link>
 
@@ -78,38 +81,41 @@ export default function Navbar() {
 
           {/* Auth area */}
           {isLoading ? (
-            <div
-              className="w-24 h-8 rounded-lg animate-pulse"
-              style={{ background: "var(--surface-2)" }}
-            />
-          ) : isAuthenticated && walletAddress ? (
+            <div className="w-24 h-8 rounded-lg animate-pulse" style={{ background: "var(--surface-2)" }} />
+          ) : isAuthenticated ? (
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/5 transition-colors border"
                 style={{ borderColor: "var(--border)" }}>
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                  style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)" }}>
-                  {walletAddress.slice(2, 4).toUpperCase()}
-                </div>
+                {avatarUrl ? (
+                  <Image src={avatarUrl} alt={displayName ?? ""} width={24} height={24} className="w-6 h-6 rounded-full object-cover" />
+                ) : (
+                  <div
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                    style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)" }}>
+                    {(displayName ?? "?").slice(0, 2).toUpperCase()}
+                  </div>
+                )}
                 <span className="text-sm hidden md:block" style={{ color: "var(--foreground)" }}>
-                  {shortenAddress(walletAddress)}
+                  {displayName}
                 </span>
               </button>
 
               {dropdownOpen && (
                 <>
-                  <button
-                    className="fixed inset-0 z-10"
-                    onClick={() => setDropdownOpen(false)}
-                    style={{ background: "transparent" }}
-                  />
+                  <button className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} style={{ background: "transparent" }} />
                   <div
-                    className="absolute right-0 top-full mt-2 w-48 rounded-xl border shadow-2xl z-20 overflow-hidden py-1"
+                    className="absolute right-0 top-full mt-2 w-52 rounded-xl border shadow-2xl z-20 overflow-hidden py-1"
                     style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                    <div className="px-4 py-2.5 border-b" style={{ borderColor: "var(--border)" }}>
+                      <p className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>{displayName}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+                        {provider === "google" ? "Google" : "Wallet"} account
+                      </p>
+                    </div>
                     <Link
-                      href={`/profile/${walletAddress}`}
+                      href={`/profile/${walletAddress ?? userId}`}
                       onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors"
                       style={{ color: "var(--foreground)" }}>
@@ -126,32 +132,55 @@ export default function Navbar() {
                     </Link>
                     <div className="border-t my-1" style={{ borderColor: "var(--border)" }} />
                     <button
-                      onClick={async () => {
-                        setDropdownOpen(false);
-                        await logout();
-                      }}
+                      onClick={async () => { setDropdownOpen(false); await logout(); }}
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm w-full text-left hover:bg-white/5 transition-colors"
                       style={{ color: "#f87171" }}>
                       <LogOut size={14} />
-                      Disconnect
+                      Sign Out
                     </button>
                   </div>
                 </>
               )}
             </div>
           ) : (
-            <button
-              onClick={handleLogin}
-              disabled={loginPending}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)" }}>
-              {loginPending ? (
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Zap size={13} />
+            <div className="relative">
+              <button
+                onClick={() => setAuthMenuOpen(!authMenuOpen)}
+                disabled={loginPending}
+                className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
+                style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)" }}>
+                {loginPending ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Zap size={13} />
+                )}
+                {loginPending ? "Connecting..." : "Sign In"}
+              </button>
+              {authMenuOpen && (
+                <>
+                  <button className="fixed inset-0 z-10" onClick={() => setAuthMenuOpen(false)} style={{ background: "transparent" }} />
+                  <div
+                    className="absolute right-0 top-full mt-2 w-52 rounded-xl border shadow-2xl z-20 overflow-hidden py-1"
+                    style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                    <p className="px-4 py-2 text-xs font-semibold" style={{ color: "var(--muted)" }}>CHOOSE METHOD</p>
+                    <button
+                      onClick={async () => { setAuthMenuOpen(false); await handleLogin(); }}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm w-full text-left hover:bg-white/5 transition-colors"
+                      style={{ color: "var(--foreground)" }}>
+                      <Zap size={14} style={{ color: "#a78bfa" }} />
+                      Connect Wallet
+                    </button>
+                    <button
+                      onClick={async () => { setAuthMenuOpen(false); await loginWithGoogle(); }}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm w-full text-left hover:bg-white/5 transition-colors"
+                      style={{ color: "var(--foreground)" }}>
+                      <svg width="14" height="14" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.3 9 3.4l6.7-6.7C35.6 2.5 30.1 0 24 0 14.7 0 6.8 5.4 3 13.3l7.8 6C12.7 13.3 17.9 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17z"/><path fill="#FBBC05" d="M10.8 28.7A14.4 14.4 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7L2.5 13.3A23.9 23.9 0 0 0 0 24c0 3.9.9 7.5 2.5 10.7l8.3-6z"/><path fill="#34A853" d="M24 48c6.1 0 11.2-2 14.9-5.5l-7.5-5.8c-2 1.4-4.6 2.2-7.4 2.2-6.1 0-11.3-3.8-13.2-9.2l-7.8 6C6.8 42.6 14.7 48 24 48z"/></svg>
+                      Continue with Google
+                    </button>
+                  </div>
+                </>
               )}
-              {loginPending ? "Connecting..." : "Connect Wallet"}
-            </button>
+            </div>
           )}
 
           <button

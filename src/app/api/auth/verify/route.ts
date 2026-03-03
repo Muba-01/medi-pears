@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyMessage } from "ethers";
 import { consumeNonce } from "@/lib/nonce";
 import { signJWT } from "@/lib/jwt";
+import { findOrCreateUserByWallet } from "@/services/userService";
 
 const COOKIE_NAME = "mp_token";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nonce expired or not found. Please try again." }, { status: 401 });
   }
 
-  const message = `Sign this message to authenticate with MedPear.\n\nNonce: ${nonce}`;
+  const message = `Sign this message to authenticate with Medipear.\n\nNonce: ${nonce}`;
 
   let recoveredAddress: string;
   try {
@@ -45,7 +46,21 @@ export async function POST(req: NextRequest) {
 
   const token = await signJWT(address.toLowerCase());
 
-  const res = NextResponse.json({ walletAddress: address.toLowerCase() });
+  // Upsert user record in MongoDB (no-op if DB not configured)
+  let dbUser = null;
+  if (process.env.MONGODB_URI) {
+    try {
+      dbUser = await findOrCreateUserByWallet(address);
+    } catch {
+      // Non-fatal: proceed without DB
+    }
+  }
+
+  const res = NextResponse.json({
+    walletAddress: address.toLowerCase(),
+    username: dbUser?.username ?? null,
+    userId: dbUser?._id?.toString() ?? null,
+  });
 
   res.cookies.set(COOKIE_NAME, token, {
     httpOnly: true,

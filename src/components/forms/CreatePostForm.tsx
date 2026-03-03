@@ -8,24 +8,55 @@ import { cn, shortenAddress } from "@/lib/utils";
 
 export default function CreatePostForm() {
   const router = useRouter();
-  const { walletAddress } = useAuth();
+  const { walletAddress, username } = useAuth();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [community, setCommunity] = useState("");
   const [activeTab, setActiveTab] = useState<"text" | "image" | "link">("text");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const isValid = title.trim().length > 0 && content.trim().length > 0;
+  const isValid = title.trim().length >= 3 && content.trim().length > 0 && community.trim().length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) return;
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setSubmitting(false);
-    setSubmitted(true);
-    setTimeout(() => router.push("/"), 1500);
+    setError(null);
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          content: content.trim(),
+          communitySlug: community.trim().toLowerCase(),
+          tags: [],
+        }),
+      });
+      if (res.status === 401) {
+        setError("Please sign in first to create a post.");
+        setSubmitting(false);
+        return;
+      }
+      if (res.status === 404) {
+        setError("Community not found. Please check the community name.");
+        setSubmitting(false);
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Failed to create post. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+      setSubmitted(true);
+      setTimeout(() => router.push("/"), 1500);
+    } catch {
+      setError("Network error. Please check your connection.");
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -57,10 +88,10 @@ export default function CreatePostForm() {
         </div>
         <div>
           <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-            {walletAddress ? shortenAddress(walletAddress) : "Anonymous"}
+            {username ?? (walletAddress ? shortenAddress(walletAddress) : "Anonymous")}
           </p>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Posting as wallet
+            {username ? `u/${username}` : "Posting as wallet"}
           </p>
         </div>
       </div>
@@ -95,7 +126,7 @@ export default function CreatePostForm() {
         style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         <input
           type="text"
-          placeholder="Community (e.g. defi-talk)"
+          placeholder="Community slug (e.g. defi-talk)"
           value={community}
           onChange={(e) => setCommunity(e.target.value)}
           className="w-full px-4 py-3 bg-transparent outline-none text-sm"
@@ -142,6 +173,15 @@ export default function CreatePostForm() {
           style={{ color: "var(--foreground)" }}
         />
       </div>
+
+      {/* Error */}
+      {error && (
+        <div
+          className="px-4 py-3 rounded-xl text-sm border"
+          style={{ background: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.3)", color: "#f87171" }}>
+          {error}
+        </div>
+      )}
 
       {/* Submit */}
       <div className="flex items-center gap-3">

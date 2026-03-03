@@ -36,18 +36,27 @@ export default function CommentCard({ comment, depth = 0 }: CommentCardProps) {
     <div className={cn("flex gap-3", depth > 0 && "ml-6 pl-4 border-l")}
       style={{ borderColor: depth > 0 ? "var(--border)" : "transparent" }}>
       {/* Avatar */}
-      <img
-        src={comment.author.avatar}
-        alt={comment.author.username}
-        className="w-7 h-7 rounded-full flex-shrink-0 mt-1"
-        style={{ background: "var(--surface-2)" }}
-      />
+      {comment.author.avatar ? (
+        <img
+          src={comment.author.avatar}
+          alt={comment.author.username}
+          className="w-7 h-7 rounded-full flex-shrink-0 mt-1 object-cover"
+          style={{ background: "var(--surface-2)" }}
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      ) : (
+        <div
+          className="w-7 h-7 rounded-full flex-shrink-0 mt-1 flex items-center justify-center text-xs font-bold text-white"
+          style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)", minWidth: "28px" }}>
+          {comment.author.username.slice(0, 2).toUpperCase()}
+        </div>
+      )}
 
       <div className="flex-1 min-w-0">
         {/* Author + time */}
         <div className="flex items-center gap-2 flex-wrap mb-1.5">
           <Link
-            href={`/profile/${comment.author.walletAddress}`}
+            href={`/profile/${comment.author.walletAddress || comment.authorId}`}
             className="text-sm font-semibold hover:text-purple-400 transition-colors"
             style={{ color: "var(--foreground)" }}>
             u/{comment.author.username}

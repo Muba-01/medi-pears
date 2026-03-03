@@ -12,6 +12,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     nonce,
-    message: `Sign this message to authenticate with MedPear.\n\nNonce: ${nonce}`,
+    message: `Sign this message to authenticate with Medipear.\n\nNonce: ${nonce}`,
   });
 }

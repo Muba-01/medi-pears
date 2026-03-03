@@ -2,8 +2,15 @@
 import Sidebar from "@/components/layout/Sidebar";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { getPosts } from "@/services/postService";
+import type { Post } from "@/lib/types";
 
-export default function HomePage() {
+export default async function HomePage() {
+  let posts: Post[] = [];
+  try {
+    posts = await getPosts({ sort: "hot" });
+  } catch { /* DB not connected yet — show empty state */ }
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex gap-6">
@@ -15,7 +22,7 @@ export default function HomePage() {
             }}>
             <div className="relative z-10">
               <h1 className="text-xl font-bold text-white mb-1">
-                Welcome to MedPear
+                Welcome to Medipear
               </h1>
               <p className="text-sm text-white/60 mb-4">
                 The decentralized community platform for Web3 builders and explorers.
@@ -42,7 +49,7 @@ export default function HomePage() {
             />
           </div>
 
-          <PostList posts={[]} showSortBar />
+          <PostList posts={posts} showSortBar />
         </div>
 
         <Sidebar />

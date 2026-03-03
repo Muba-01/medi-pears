@@ -27,7 +27,8 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
 
   const score = upvotes - downvotes;
 
-  const handleVote = (direction: "up" | "down") => {
+  const handleVote = async (direction: "up" | "down") => {
+    // Optimistic update
     if (userVote === direction) {
       setUserVote(null);
       if (direction === "up") setUpvotes((v) => v - 1);
@@ -39,6 +40,15 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
       if (direction === "up") setUpvotes((v) => v + 1);
       else setDownvotes((v) => v + 1);
     }
+
+    // Persist to DB (fire-and-forget; no rollback for now)
+    try {
+      await fetch(`/api/posts/${post.id}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voteType: direction }),
+      });
+    } catch { /* silent fail */ }
   };
 
   return (
@@ -92,7 +102,7 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
             <span className="text-xs" style={{ color: "var(--muted)" }}>
               Posted by{" "}
               <Link
-                href={`/profile/${post.author.walletAddress}`}
+                href={`/profile/${post.author.walletAddress || post.authorId}`}
                 className="hover:text-purple-400 transition-colors">
                 u/{post.author.username}
               </Link>
