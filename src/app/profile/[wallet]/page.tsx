@@ -1,8 +1,13 @@
-﻿import ProfileHeader from "@/components/profile/ProfileHeader";
+﻿import { Suspense } from "react";
+import ProfileHeader from "@/components/profile/ProfileHeader";
 import PostList from "@/components/posts/PostList";
 import Sidebar from "@/components/layout/Sidebar";
 import { getPosts } from "@/services/postService";
 import { getUserByWallet, getUserById } from "@/services/userService";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { cookies } from "next/headers";
+import { verifyJWT } from "@/lib/jwt";
 import type { Post } from "@/lib/types";
 
 interface PageProps {
@@ -14,8 +19,25 @@ export default async function ProfilePage({ params }: PageProps) {
 
   let posts: Post[] = [];
   let user = null;
+  let viewerUserId: string | null = null;
+
   try {
-    // slug may be a wallet address (0x...) or a MongoDB ObjectId (Google users)
+    // Determine who is viewing
+    const cookieStore = await cookies();
+    const token = cookieStore.get("mp_token")?.value;
+    if (token) {
+      const payload = await verifyJWT(token);
+      if (payload?.walletAddress) {
+        const viewer = await getUserByWallet(payload.walletAddress);
+        viewerUserId = viewer?._id?.toString() ?? null;
+      }
+    }
+    if (!viewerUserId) {
+      const session = await getServerSession(authOptions);
+      viewerUserId = session?.user?.id ?? null;
+    }
+
+    // Load profile user
     const isWalletAddress = /^0x[0-9a-fA-F]{40}$/i.test(wallet);
     user = isWalletAddress ? await getUserByWallet(wallet) : await getUserById(wallet);
     posts = await getPosts(
@@ -24,6 +46,9 @@ export default async function ProfilePage({ params }: PageProps) {
         : { authorId: wallet }
     );
   } catch { /* DB not ready */ }
+
+  const profileUserId = user?._id?.toString() ?? null;
+  const isOwnProfile = !!(viewerUserId && profileUserId && viewerUserId === profileUserId);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -36,8 +61,9 @@ export default async function ProfilePage({ params }: PageProps) {
             karma={user?.karma ?? 0}
             joinDate={user?.createdAt?.toISOString() ?? null}
             bio={user?.bio ?? ""}
+            isOwnProfile={isOwnProfile}
           />
-          <PostList posts={posts} />
+          <Suspense><PostList posts={posts} /></Suspense>
         </div>
         <Sidebar />
       </div>

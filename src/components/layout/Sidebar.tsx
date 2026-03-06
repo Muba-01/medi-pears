@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Plus, Compass } from "lucide-react";
 import { getCommunities } from "@/services/communityService";
+import SidebarCreateButton from "./SidebarCreateButton";
+import CreateCommunityButton from "@/components/community/CreateCommunityButton";
 
 export default async function Sidebar() {
   let communities: Awaited<ReturnType<typeof getCommunities>> = [];
@@ -20,12 +22,15 @@ export default async function Sidebar() {
           <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
             Communities
           </span>
-          <Link
-            href="/explore"
-            className="text-xs font-medium transition-colors hover:opacity-80"
-            style={{ color: "#a78bfa" }}>
-            See all
-          </Link>
+          <div className="flex items-center gap-2">
+            <CreateCommunityButton compact />
+            <Link
+              href="/explore"
+              className="text-xs font-medium transition-colors hover:opacity-80"
+              style={{ color: "#a78bfa" }}>
+              See all
+            </Link>
+          </div>
         </div>
 
         {communities.length === 0 ? (
@@ -91,9 +96,7 @@ export default async function Sidebar() {
           <Link href="/explore" className="hover:text-purple-400 transition-colors">
             Explore communities →
           </Link>
-          <Link href="/create" className="hover:text-purple-400 transition-colors">
-            Create a post →
-          </Link>
+          <SidebarCreateButton />
         </div>
       </div>
     </aside>

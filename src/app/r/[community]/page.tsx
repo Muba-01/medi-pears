@@ -1,24 +1,33 @@
-import Link from "next/link";
 import PostList from "@/components/posts/PostList";
 import Sidebar from "@/components/layout/Sidebar";
-import { Users, FileText, Plus } from "lucide-react";
+import { FileText } from "lucide-react";
 import { getCommunityBySlug } from "@/services/communityService";
 import { getPosts } from "@/services/postService";
+import CommunityPostButton from "@/components/community/CommunityPostButton";
+import JoinCommunityButton from "@/components/community/JoinCommunityButton";
 import type { Post } from "@/lib/types";
+
+import { Suspense } from "react";
+
+const VALID_SORTS = ["hot", "new", "top", "rising"] as const;
+type Sort = (typeof VALID_SORTS)[number];
 
 interface PageProps {
   params: Promise<{ community: string }>;
+  searchParams: Promise<{ sort?: string }>;
 }
 
-export default async function CommunityPage({ params }: PageProps) {
+export default async function CommunityPage({ params, searchParams }: PageProps) {
   const { community: slug } = await params;
+  const { sort } = await searchParams;
+  const sortBy: Sort = VALID_SORTS.includes(sort as Sort) ? (sort as Sort) : "hot";
 
   let community = null;
   let posts: Post[] = [];
   try {
     [community, posts] = await Promise.all([
       getCommunityBySlug(slug),
-      getPosts({ communitySlug: slug, sort: "hot" }),
+      getPosts({ communitySlug: slug, sort: sortBy }),
     ]);
   } catch { /* DB not ready */ }
 
@@ -60,30 +69,14 @@ export default async function CommunityPage({ params }: PageProps) {
                 <div
                   className="flex items-center gap-1.5 text-sm"
                   style={{ color: "var(--muted)" }}>
-                  <Users size={14} />
-                  <span>{memberCount.toLocaleString()} members</span>
-                </div>
-                <div
-                  className="flex items-center gap-1.5 text-sm"
-                  style={{ color: "var(--muted)" }}>
                   <FileText size={14} />
                   <span>{posts.length} posts</span>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Link
-                href="/create"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border hover:bg-white/5 transition-all"
-                style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
-                <Plus size={14} />
-                Post
-              </Link>
-              <button
-                className="px-5 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
-                style={{ background: "var(--accent)" }}>
-                Join
-              </button>
+              <CommunityPostButton slug={slug} />
+              <JoinCommunityButton slug={slug} initialMembersCount={memberCount} />
             </div>
           </div>
         </div>
@@ -91,7 +84,9 @@ export default async function CommunityPage({ params }: PageProps) {
 
       <div className="flex gap-6">
         <div className="flex-1 min-w-0">
-          <PostList posts={posts} showSortBar />
+          <Suspense>
+            <PostList posts={posts} showSortBar />
+          </Suspense>
         </div>
         <Sidebar />
       </div>

@@ -6,12 +6,17 @@ import { CreatePostSchema } from "@/lib/validations";
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const communitySlug = searchParams.get("community") ?? undefined;
-  const sort = (searchParams.get("sort") ?? "hot") as "hot" | "new" | "top";
+  const sort = (searchParams.get("sort") ?? "hot") as "hot" | "new" | "top" | "rising";
+  const search = searchParams.get("q") ?? undefined;
+  const authorId = searchParams.get("authorId") ?? undefined;
 
-  const user = await getAuthUser(req);
-  const posts = await getPosts({ communitySlug, sort }, user?._id.toString());
-
-  return NextResponse.json({ posts });
+  try {
+    const user = await getAuthUser(req);
+    const posts = await getPosts({ communitySlug, sort, search, authorId }, user?._id.toString());
+    return NextResponse.json({ posts });
+  } catch {
+    return NextResponse.json({ posts: [] });
+  }
 }
 
 export async function POST(req: NextRequest) {

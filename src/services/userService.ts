@@ -72,3 +72,26 @@ export async function linkWalletToUser(
     { new: true }
   );
 }
+
+export async function updateUser(
+  userId: string,
+  updates: { username?: string; bio?: string }
+): Promise<IUser | null> {
+  await connectDB();
+  if (!mongoose.Types.ObjectId.isValid(userId)) return null;
+
+  // Check username uniqueness if changing
+  if (updates.username) {
+    const existing = await User.findOne({
+      username: updates.username,
+      _id: { $ne: new mongoose.Types.ObjectId(userId) },
+    });
+    if (existing) throw new Error("Username already taken");
+  }
+
+  return User.findByIdAndUpdate(
+    userId,
+    { $set: updates },
+    { new: true }
+  );
+}

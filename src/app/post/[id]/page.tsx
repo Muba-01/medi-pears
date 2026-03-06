@@ -2,8 +2,12 @@
 import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
 import PostCard from "@/components/posts/PostCard";
+import CommentCard from "@/components/posts/CommentCard";
+import CommentForm from "@/components/posts/CommentForm";
 import { getPostById } from "@/services/postService";
-import { MessageSquare } from "lucide-react";
+import { getCommentsByPost } from "@/services/commentService";
+import { MessageSquare, ExternalLink } from "lucide-react";
+import type { Comment } from "@/lib/types";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -14,8 +18,10 @@ export default async function PostPage({ params }: PageProps) {
   if (!id) notFound();
 
   let post = null;
+  let comments: Comment[] = [];
   try {
     post = await getPostById(id);
+    if (post) comments = await getCommentsByPost(id);
   } catch { /* DB not ready */ }
 
   if (!post) {
@@ -61,16 +67,57 @@ export default async function PostPage({ params }: PageProps) {
             <h2 className="text-base font-semibold mb-3" style={{ color: "var(--foreground)" }}>
               {post.title}
             </h2>
-            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--muted)" }}>
-              {post.content}
-            </p>
-            {post.imageUrl && (
-              <img
-                src={post.imageUrl}
-                alt="Post image"
-                className="mt-4 rounded-lg max-w-full"
-                style={{ maxHeight: "480px", objectFit: "cover" }}
-              />
+
+            {/* Image / video post */}
+            {post.postType === "image" && post.imageUrl && (
+              <div className="mb-3 rounded-xl overflow-hidden" style={{ background: "var(--surface-2)" }}>
+                {/\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(post.imageUrl) ? (
+                  // eslint-disable-next-line jsx-a11y/media-has-caption
+                  <video
+                    src={post.imageUrl}
+                    controls
+                    className="w-full max-h-[600px]"
+                    style={{ background: "#000" }}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={post.imageUrl}
+                    alt={post.title}
+                    className="w-full object-contain max-h-[600px]"
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Link post */}
+            {post.postType === "link" && post.linkUrl && (
+              <a
+                href={post.linkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 mb-3 px-4 py-3 rounded-xl border hover:opacity-80 transition-opacity"
+                style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(37,99,235,0.2)" }}>
+                  <ExternalLink size={16} style={{ color: "#60a5fa" }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium" style={{ color: "#60a5fa" }}>
+                    {(() => { try { return new URL(post.linkUrl).hostname; } catch { return post.linkUrl; } })()}
+                  </p>
+                  <p className="text-xs truncate" style={{ color: "var(--muted)" }}>{post.linkUrl}</p>
+                </div>
+                <ExternalLink size={13} className="ml-auto flex-shrink-0" style={{ color: "var(--muted)" }} />
+              </a>
+            )}
+
+            {/* Text / caption */}
+            {post.content && (
+              <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--muted)" }}>
+                {post.content}
+              </p>
             )}
           </div>
 
@@ -78,23 +125,41 @@ export default async function PostPage({ params }: PageProps) {
           <div
             className="rounded-xl border"
             style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+            {/* Header */}
             <div
               className="px-5 py-3 border-b flex items-center gap-2"
               style={{ borderColor: "var(--border)" }}>
               <MessageSquare size={15} style={{ color: "var(--muted)" }} />
               <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                {post.commentCount} Comment{post.commentCount !== 1 ? "s" : ""}
+                {comments.length} Comment{comments.length !== 1 ? "s" : ""}
               </span>
             </div>
-            <div className="px-5 py-10 flex flex-col items-center text-center">
-              <MessageSquare size={32} style={{ color: "var(--muted)" }} className="mb-3 opacity-40" />
-              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-                No comments yet
-              </p>
-              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-                Be the first to share your thoughts.
-              </p>
+
+            {/* Comment form */}
+            <div className="border-b" style={{ borderColor: "var(--border)" }}>
+              <CommentForm postId={id} />
             </div>
+
+            {/* Comment list */}
+            {comments.length === 0 ? (
+              <div className="px-5 py-10 flex flex-col items-center text-center">
+                <MessageSquare size={32} style={{ color: "var(--muted)" }} className="mb-3 opacity-40" />
+                <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+                  No comments yet
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                  Be the first to share your thoughts.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col divide-y" style={{ borderColor: "var(--border)" }}>
+                {comments.map((comment) => (
+                  <div key={comment.id} className="px-5 py-4">
+                    <CommentCard comment={comment} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <Sidebar />

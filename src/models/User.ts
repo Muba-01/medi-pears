@@ -10,6 +10,7 @@ export interface IUser extends Document {
   karma: number;
   tokenBalance: number;
   authProvider: "wallet" | "google";
+  joinedCommunities: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +25,7 @@ const UserSchema = new Schema<IUser>(
     karma: { type: Number, default: 0, min: 0 },
     tokenBalance: { type: Number, default: 0, min: 0 },
     authProvider: { type: String, enum: ["wallet", "google"], required: true },
+    joinedCommunities: [{ type: Schema.Types.ObjectId, ref: "Community" }],
   },
   { timestamps: true }
 );

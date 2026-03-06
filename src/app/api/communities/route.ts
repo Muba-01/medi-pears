@@ -4,8 +4,12 @@ import { createCommunity, getCommunities } from "@/services/communityService";
 import { CreateCommunitySchema } from "@/lib/validations";
 
 export async function GET() {
-  const communities = await getCommunities();
-  return NextResponse.json({ communities });
+  try {
+    const communities = await getCommunities();
+    return NextResponse.json({ communities });
+  } catch {
+    return NextResponse.json({ communities: [] });
+  }
 }
 
 export async function POST(req: NextRequest) {

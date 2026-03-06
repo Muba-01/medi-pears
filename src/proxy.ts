@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { verifyJWT } from "@/lib/jwt";
 
 const PROTECTED_PATHS = ["/create"];
-const COOKIE_NAME = "mp_token";
+const WALLET_COOKIE = "mp_token";
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -13,21 +14,22 @@ export async function proxy(req: NextRequest) {
 
   if (!isProtected) return NextResponse.next();
 
-  const token = req.cookies.get(COOKIE_NAME)?.value;
-
-  if (!token) {
-    return NextResponse.redirect(new URL("/", req.url));
+  // 1. Check wallet JWT cookie
+  const walletToken = req.cookies.get(WALLET_COOKIE)?.value;
+  if (walletToken) {
+    const payload = await verifyJWT(walletToken);
+    if (payload?.walletAddress) return NextResponse.next();
   }
 
-  const payload = await verifyJWT(token);
+  // 2. Check NextAuth session (Google OAuth)
+  const nextAuthToken = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+  if (nextAuthToken?.userId) return NextResponse.next();
 
-  if (!payload) {
-    const res = NextResponse.redirect(new URL("/", req.url));
-    res.cookies.delete(COOKIE_NAME);
-    return res;
-  }
-
-  return NextResponse.next();
+  // Not authenticated — send home (CreatePostForm will show sign-in gate)
+  return NextResponse.redirect(new URL("/", req.url));
 }
 
 export const config = {

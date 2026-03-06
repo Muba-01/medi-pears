@@ -33,6 +33,7 @@ interface AuthContextValue extends AuthState {
   login: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const EMPTY: AuthState = {
@@ -173,8 +174,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState({ ...EMPTY });
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        setState((prev) => ({
+          ...prev,
+          username: data.username ?? prev.username,
+          avatarUrl: data.avatarUrl ?? prev.avatarUrl,
+        }));
+      }
+    } catch { /* silent */ }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ ...state, login, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ ...state, login, loginWithGoogle, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

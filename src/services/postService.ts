@@ -31,6 +31,7 @@ type LeanPost = {
   _id: mongoose.Types.ObjectId;
   title: string;
   content: string;
+  postType: "text" | "image" | "link";
   author: PopulatedAuthor;
   community: PopulatedCommunity;
   upvotes: mongoose.Types.ObjectId[];
@@ -38,6 +39,7 @@ type LeanPost = {
   score: number;
   tags: string[];
   imageUrl?: string;
+  linkUrl?: string;
   commentCount: number;
   createdAt: Date;
   updatedAt: Date;
@@ -87,6 +89,7 @@ function serializePost(p: LeanPost, currentUserId?: string): PostFE {
     id: p._id.toString(),
     title: p.title,
     content: p.content,
+    postType: p.postType ?? "text",
     authorId: p.author._id.toString(),
     author: serializeAuthor(p.author),
     communityId: p.community._id.toString(),
@@ -98,6 +101,7 @@ function serializePost(p: LeanPost, currentUserId?: string): PostFE {
     createdAt: p.createdAt.toISOString(),
     tags: p.tags,
     imageUrl: p.imageUrl,
+    linkUrl: p.linkUrl,
     userVote,
   };
 }
@@ -109,9 +113,10 @@ export type GetPostsFilter = {
   communitySlug?: string;
   authorWallet?: string;
   authorId?: string;
-  sort?: "hot" | "new" | "top";
+  sort?: "hot" | "new" | "top" | "rising";
   limit?: number;
   page?: number;
+  search?: string;
 };
 
 export async function getPosts(
@@ -133,12 +138,25 @@ export async function getPosts(
 
   if (filter.authorId && mongoose.Types.ObjectId.isValid(filter.authorId)) {
     query.author = new mongoose.Types.ObjectId(filter.authorId);
+  } else if (filter.authorWallet) {
+    // Resolve wallet → ObjectId so the query hits the DB index
+    const authorUser = await import("@/models/User").then(m =>
+      m.default.findOne({ walletAddress: filter.authorWallet!.toLowerCase() }).select("_id").lean()
+    );
+    if (!authorUser) return [];
+    query.author = authorUser._id;
+  }
+
+  if (filter.search && filter.search.trim()) {
+    const regex = new RegExp(filter.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    query.$or = [{ title: regex }, { content: regex }];
   }
 
   const sortMap: Record<string, Record<string, number>> = {
     new: { createdAt: -1 },
     top: { score: -1, createdAt: -1 },
     hot: { score: -1, createdAt: -1 },
+    rising: { createdAt: -1, score: -1 },
   };
   const sortQuery = sortMap[filter.sort ?? "hot"];
 
@@ -152,11 +170,6 @@ export async function getPosts(
   let posts = (raw as unknown as LeanPost[]).map((p) =>
     serializePost(p, currentUserId)
   );
-
-  if (filter.authorWallet) {
-    const addr = filter.authorWallet.toLowerCase();
-    posts = posts.filter((p) => p.author.walletAddress.toLowerCase() === addr);
-  }
 
   return posts;
 }
@@ -192,10 +205,12 @@ export async function createPost(
   const created = await Post.create({
     title: input.title,
     content: input.content,
+    postType: input.postType ?? "text",
     author: authorId,
     community: community._id,
     tags: input.tags ?? [],
     imageUrl: input.imageUrl || undefined,
+    linkUrl: input.linkUrl || undefined,
   });
 
   const populated = await Post.findById(created._id)

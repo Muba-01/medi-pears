@@ -1,6 +1,7 @@
 import { Zap, Calendar, ExternalLink } from "lucide-react";
 import { shortenAddress } from "@/lib/utils";
 import Image from "next/image";
+import EditProfileButton from "./EditProfileButton";
 
 interface ProfileHeaderProps {
   walletAddress?: string | null;
@@ -9,6 +10,7 @@ interface ProfileHeaderProps {
   karma?: number;
   joinDate?: string | null;
   bio?: string;
+  isOwnProfile?: boolean;
 }
 
 export default function ProfileHeader({
@@ -18,6 +20,7 @@ export default function ProfileHeader({
   karma = 0,
   joinDate,
   bio,
+  isOwnProfile = false,
 }: ProfileHeaderProps) {
   const formattedJoin = joinDate
     ? new Date(joinDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
@@ -84,11 +87,17 @@ export default function ProfileHeader({
             )}
           </div>
 
-          <button
-            className="ml-auto flex-shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium border hover:bg-white/5 transition-all"
-            style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
-            Follow
-          </button>
+          <div className="ml-auto flex-shrink-0">
+            {isOwnProfile ? (
+              <EditProfileButton />
+            ) : (
+              <button
+                className="flex-shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium border hover:bg-white/5 transition-all"
+                style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
+                Follow
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

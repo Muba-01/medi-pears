@@ -1,14 +1,24 @@
-﻿import PostList from "@/components/posts/PostList";
+﻿import { Suspense } from "react";
+import PostList from "@/components/posts/PostList";
 import Sidebar from "@/components/layout/Sidebar";
-import Link from "next/link";
-import { Plus } from "lucide-react";
+import CreatePostButton from "@/components/forms/CreatePostButton";
 import { getPosts } from "@/services/postService";
 import type { Post } from "@/lib/types";
 
-export default async function HomePage() {
+const VALID_SORTS = ["hot", "new", "top", "rising"] as const;
+type Sort = (typeof VALID_SORTS)[number];
+
+interface PageProps {
+  searchParams: Promise<{ sort?: string }>;
+}
+
+export default async function HomePage({ searchParams }: PageProps) {
+  const { sort } = await searchParams;
+  const sortBy: Sort = VALID_SORTS.includes(sort as Sort) ? (sort as Sort) : "hot";
+
   let posts: Post[] = [];
   try {
-    posts = await getPosts({ sort: "hot" });
+    posts = await getPosts({ sort: sortBy });
   } catch { /* DB not connected yet — show empty state */ }
 
   return (
@@ -27,17 +37,7 @@ export default async function HomePage() {
               <p className="text-sm text-white/60 mb-4">
                 The decentralized community platform for Web3 builders and explorers.
               </p>
-              <Link
-                href="/create"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
-                style={{
-                  background: "rgba(255,255,255,0.15)",
-                  backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                }}>
-                <Plus size={14} />
-                Create Post
-              </Link>
+              <CreatePostButton />
             </div>
             <div
               className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl opacity-20"
@@ -49,7 +49,9 @@ export default async function HomePage() {
             />
           </div>
 
-          <PostList posts={posts} showSortBar />
+          <Suspense>
+            <PostList posts={posts} showSortBar />
+          </Suspense>
         </div>
 
         <Sidebar />

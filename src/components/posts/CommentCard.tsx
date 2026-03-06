@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowUp, ArrowDown, MessageSquare, CornerDownRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowUp, ArrowDown, MessageSquare } from "lucide-react";
 import { Comment } from "@/lib/types";
 import { cn, formatNumber, timeAgo } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CommentCardProps {
   comment: Comment;
@@ -12,15 +14,26 @@ interface CommentCardProps {
 }
 
 export default function CommentCard({ comment, depth = 0 }: CommentCardProps) {
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
   const [upvotes, setUpvotes] = useState(comment.upvotes);
   const [downvotes, setDownvotes] = useState(comment.downvotes);
   const [userVote, setUserVote] = useState<"up" | "down" | null>(comment.userVote ?? null);
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
+  const [replyLoading, setReplyLoading] = useState(false);
 
   const score = upvotes - downvotes;
 
-  const handleVote = (direction: "up" | "down") => {
+  const handleVote = async (direction: "up" | "down") => {
+    if (!isAuthenticated) return;
+
+    // Optimistic update
+    const prevUpvotes = upvotes;
+    const prevDownvotes = downvotes;
+    const prevVote = userVote;
+
     if (userVote === direction) {
       setUserVote(null);
       direction === "up" ? setUpvotes((v) => v - 1) : setDownvotes((v) => v - 1);
@@ -29,6 +42,43 @@ export default function CommentCard({ comment, depth = 0 }: CommentCardProps) {
       if (userVote === "down") setDownvotes((v) => v - 1);
       setUserVote(direction);
       direction === "up" ? setUpvotes((v) => v + 1) : setDownvotes((v) => v + 1);
+    }
+
+    try {
+      const res = await fetch(`/api/comments/${comment.id}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voteType: direction }),
+      });
+      if (!res.ok) throw new Error("vote failed");
+      const data = await res.json();
+      setUpvotes(data.upvotes);
+      setDownvotes(data.downvotes);
+    } catch {
+      // Rollback optimistic update
+      setUpvotes(prevUpvotes);
+      setDownvotes(prevDownvotes);
+      setUserVote(prevVote);
+    }
+  };
+
+  const handleReplySubmit = async () => {
+    if (!replyText.trim() || !isAuthenticated) return;
+    setReplyLoading(true);
+    try {
+      const res = await fetch(`/api/posts/${comment.postId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: replyText.trim(), parentCommentId: comment.id }),
+      });
+      if (!res.ok) throw new Error("reply failed");
+      setReplyOpen(false);
+      setReplyText("");
+      router.refresh();
+    } catch {
+      // keep box open on failure
+    } finally {
+      setReplyLoading(false);
     }
   };
 
@@ -121,30 +171,23 @@ export default function CommentCard({ comment, depth = 0 }: CommentCardProps) {
             />
             <div className="flex flex-col gap-2">
               <button
-                onClick={() => setReplyOpen(false)}
+                onClick={() => { setReplyOpen(false); setReplyText(""); }}
                 className="px-3 py-1.5 rounded-lg text-xs border hover:bg-white/5 transition-colors"
                 style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
                 Cancel
               </button>
               <button
-                onClick={() => { setReplyOpen(false); setReplyText(""); }}
-                disabled={!replyText.trim()}
+                onClick={handleReplySubmit}
+                disabled={!replyText.trim() || replyLoading}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-50"
                 style={{ background: "var(--accent)" }}>
-                Reply
+                {replyLoading ? "..." : "Reply"}
               </button>
             </div>
           </div>
         )}
 
-        {/* Nested replies */}
-        {comment.replies && comment.replies.length > 0 && (
-          <div className="mt-3 flex flex-col gap-4">
-            {comment.replies.map((reply) => (
-              <CommentCard key={reply.id} comment={reply} depth={depth + 1} />
-            ))}
-          </div>
-        )}
+        {/* Nested replies — stub for future ThreadedComments */}
       </div>
     </div>
   );

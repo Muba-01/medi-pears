@@ -10,9 +10,13 @@ import {
   Share2,
   Bookmark,
   MoreHorizontal,
+  ExternalLink,
+  Image as ImageIcon,
+  Check,
 } from "lucide-react";
 import { Post } from "@/lib/types";
 import { cn, formatNumber, timeAgo } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PostCardProps {
   post: Post;
@@ -20,15 +24,34 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post, compact = false }: PostCardProps) {
+  const { isAuthenticated } = useAuth();
   const [upvotes, setUpvotes] = useState(post.upvotes);
   const [downvotes, setDownvotes] = useState(post.downvotes);
   const [userVote, setUserVote] = useState<"up" | "down" | null>(post.userVote ?? null);
   const [saved, setSaved] = useState(false);
+  const [voteError, setVoteError] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/post/${post.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
 
   const score = upvotes - downvotes;
 
   const handleVote = async (direction: "up" | "down") => {
+    if (!isAuthenticated) {
+      setVoteError(true);
+      setTimeout(() => setVoteError(false), 1500);
+      return;
+    }
     // Optimistic update
+    const prevVote = userVote;
+    const prevUp = upvotes;
+    const prevDown = downvotes;
     if (userVote === direction) {
       setUserVote(null);
       if (direction === "up") setUpvotes((v) => v - 1);
@@ -41,14 +64,23 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
       else setDownvotes((v) => v + 1);
     }
 
-    // Persist to DB (fire-and-forget; no rollback for now)
     try {
-      await fetch(`/api/posts/${post.id}/vote`, {
+      const res = await fetch(`/api/posts/${post.id}/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voteType: direction }),
       });
-    } catch { /* silent fail */ }
+      if (!res.ok) {
+        // Rollback
+        setUserVote(prevVote);
+        setUpvotes(prevUp);
+        setDownvotes(prevDown);
+      }
+    } catch {
+      setUserVote(prevVote);
+      setUpvotes(prevUp);
+      setDownvotes(prevDown);
+    }
   };
 
   return (
@@ -57,8 +89,11 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
       style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
       <div className="flex">
         {/* Vote column */}
-        <div className="flex flex-col items-center gap-1 px-2 pt-3 pb-3 rounded-l-xl"
-          style={{ background: "var(--surface-2)" }}>
+        <div
+          className="flex flex-col items-center gap-1 px-2 pt-3 pb-3 rounded-l-xl transition-colors"
+          title={!isAuthenticated ? "Sign in to vote" : undefined}
+          style={{ background: voteError ? "rgba(239,68,68,0.15)" : "var(--surface-2)" }}
+        >
           <button
             onClick={() => handleVote("up")}
             className={cn(
@@ -142,13 +177,61 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
             </div>
           )}
 
+          {/* Image / video thumbnail (image posts) */}
+          {post.postType === "image" && post.imageUrl && !compact && (
+            <Link href={`/post/${post.id}`} className="block mb-3 rounded-xl overflow-hidden"
+              style={{ background: "var(--surface-2)" }}>
+              {/\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(post.imageUrl) ? (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video
+                  src={post.imageUrl}
+                  controls
+                  className="w-full max-h-96"
+                  style={{ background: "#000" }}
+                  onClick={(e) => e.preventDefault()}
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={post.imageUrl}
+                  alt={post.title}
+                  className="w-full max-h-96 object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
+            </Link>
+          )}
+
+          {/* Link chip (link posts) */}
+          {post.postType === "link" && post.linkUrl && (
+            <a
+              href={post.linkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1.5 mb-2 px-2.5 py-1 rounded-lg text-xs font-medium hover:opacity-80 transition-opacity max-w-full truncate"
+              style={{ background: "rgba(37,99,235,0.15)", color: "#60a5fa", border: "1px solid rgba(37,99,235,0.3)" }}>
+              <ExternalLink size={10} className="flex-shrink-0" />
+              <span className="truncate">
+                {(() => { try { return new URL(post.linkUrl).hostname; } catch { return post.linkUrl; } })()}
+              </span>
+            </a>
+          )}
+
           {/* Content preview */}
-          {!compact && (
+          {!compact && post.content && (
             <p
               className="text-sm leading-relaxed mb-3 line-clamp-3"
               style={{ color: "var(--muted)" }}>
               {post.content}
             </p>
+          )}
+
+          {/* Image post: small indicator when compact */}
+          {compact && post.postType === "image" && (
+            <span className="inline-flex items-center gap-1 text-xs mb-2" style={{ color: "var(--muted)" }}>
+              <ImageIcon size={11} /> Image
+            </span>
           )}
 
           {/* Actions */}
@@ -172,10 +255,11 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
             </div>
 
             <button
+              onClick={handleShare}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-white/5 transition-colors ml-1"
-              style={{ color: "var(--muted)" }}>
-              <Share2 size={13} />
-              <span className="hidden sm:inline">Share</span>
+              style={{ color: copied ? "#22c55e" : "var(--muted)" }}>
+              {copied ? <Check size={13} /> : <Share2 size={13} />}
+              <span className="hidden sm:inline">{copied ? "Copied!" : "Share"}</span>
             </button>
 
             <button

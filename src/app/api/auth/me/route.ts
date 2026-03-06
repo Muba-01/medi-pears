@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/jwt";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { getUserByWallet, getUserById } from "@/services/userService";
+import { getUserByWallet, getUserById, updateUser } from "@/services/userService";
+import { getAuthUser } from "@/lib/getAuthUser";
+import { UpdateProfileSchema } from "@/lib/validations";
 
 const COOKIE_NAME = "mp_token";
 
@@ -22,6 +24,7 @@ export async function GET(req: NextRequest) {
               username: dbUser.username,
               avatarUrl: dbUser.avatarUrl,
               karma: dbUser.karma,
+              bio: dbUser.bio ?? null,
               provider: dbUser.authProvider,
             });
           }
@@ -31,6 +34,7 @@ export async function GET(req: NextRequest) {
         walletAddress: payload.walletAddress,
         userId: null,
         username: null,
+        bio: null,
         provider: "wallet",
       });
     }
@@ -49,6 +53,7 @@ export async function GET(req: NextRequest) {
             username: dbUser.username,
             avatarUrl: dbUser.avatarUrl,
             karma: dbUser.karma,
+            bio: dbUser.bio ?? null,
             provider: dbUser.authProvider,
           });
         }
@@ -63,4 +68,33 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ walletAddress: null }, { status: 401 });
+}
+
+export async function PATCH(req: NextRequest) {
+  const user = await getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  let body: unknown;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const parsed = UpdateProfileSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Validation failed", issues: parsed.error.flatten().fieldErrors }, { status: 422 });
+  }
+
+  try {
+    const updated = await updateUser(user._id.toString(), parsed.data);
+    if (!updated) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return NextResponse.json({
+      userId: updated._id.toString(),
+      username: updated.username,
+      bio: updated.bio,
+      avatarUrl: updated.avatarUrl,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Update failed";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

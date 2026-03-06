@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search, Zap, Bell, Menu, X, LogOut, User, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { shortenAddress } from "@/lib/utils";
 import Image from "next/image";
+import CreateCommunityModal from "@/components/community/CreateCommunityModal";
+import { Users } from "lucide-react";
 
 export default function Navbar() {
+  const router = useRouter();
   const { isAuthenticated, isLoading, walletAddress, userId, username, avatarUrl, provider, login, loginWithGoogle, logout, error } = useAuth();
   const [authMenuOpen, setAuthMenuOpen] = useState(false);
   const displayName = username ?? (walletAddress ? shortenAddress(walletAddress) : null);
@@ -16,6 +20,12 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loginPending, setLoginPending] = useState(false);
+  const [createCommunityOpen, setCreateCommunityOpen] = useState(false);
+
+  const handleSearch = (value: string) => {
+    const q = value.trim();
+    if (q) router.push(`/search?q=${encodeURIComponent(q)}`);
+  };
 
   const handleLogin = async () => {
     setLoginPending(true);
@@ -56,6 +66,7 @@ export default function Navbar() {
               onChange={(e) => setSearchValue(e.target.value)}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSearch(searchValue); }}
               className="bg-transparent outline-none text-sm w-full"
               style={{ color: "var(--foreground)" }}
             />
@@ -130,6 +141,13 @@ export default function Navbar() {
                       <Plus size={14} style={{ color: "var(--muted)" }} />
                       Create Post
                     </Link>
+                    <button
+                      onClick={() => { setDropdownOpen(false); setCreateCommunityOpen(true); }}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm w-full text-left hover:bg-white/5 transition-colors"
+                      style={{ color: "var(--foreground)" }}>
+                      <Users size={14} style={{ color: "var(--muted)" }} />
+                      Create Community
+                    </button>
                     <div className="border-t my-1" style={{ borderColor: "var(--border)" }} />
                     <button
                       onClick={async () => { setDropdownOpen(false); await logout(); }}
@@ -218,13 +236,18 @@ export default function Navbar() {
               placeholder="Search..."
               className="bg-transparent outline-none text-sm w-full"
               style={{ color: "var(--foreground)" }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setMobileMenuOpen(false);
+                  handleSearch((e.target as HTMLInputElement).value);
+                }
+              }}
             />
           </div>
           <nav className="flex flex-col gap-1">
             {[
               { href: "/", label: "Home" },
               { href: "/explore", label: "Explore" },
-              ...(isAuthenticated ? [{ href: "/create", label: "Create Post" }] : []),
             ].map((item) => (
               <Link
                 key={item.href}
@@ -235,9 +258,28 @@ export default function Navbar() {
                 {item.label}
               </Link>
             ))}
+            {isAuthenticated && (
+              <Link
+                href="/create"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors"
+                style={{ color: "var(--foreground)" }}>
+                Create Post
+              </Link>
+            )}
+            {isAuthenticated && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); setCreateCommunityOpen(true); }}
+                className="px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors text-left"
+                style={{ color: "var(--foreground)" }}>
+                Create Community
+              </button>
+            )}
           </nav>
         </div>
       )}
+
+      <CreateCommunityModal isOpen={createCommunityOpen} onClose={() => setCreateCommunityOpen(false)} />
     </header>
   );
 }

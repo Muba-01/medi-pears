@@ -29,6 +29,7 @@ export interface Post {
   id: string;
   title: string;
   content: string;
+  postType?: "text" | "image" | "link";
   authorId: string;
   author: User;
   communityId: string;
@@ -40,18 +41,27 @@ export interface Post {
   createdAt: string;
   tags: string[];
   imageUrl?: string;
+  linkUrl?: string;
   userVote?: "up" | "down" | null;
+}
+
+export interface CommentAuthor {
+  username: string;
+  walletAddress: string | null;
+  avatar: string | null;
+  karma: number;
 }
 
 export interface Comment {
   id: string;
   postId: string;
   authorId: string;
-  author: User;
+  author: CommentAuthor;
   content: string;
   upvotes: number;
   downvotes: number;
+  score: number;
+  parentComment: string | null;
   createdAt: string;
-  replies?: Comment[];
   userVote?: "up" | "down" | null;
 }
