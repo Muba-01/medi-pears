@@ -9,7 +9,9 @@ export interface IUser extends Document {
   avatarUrl: string;
   karma: number;
   tokenBalance: number;
-  authProvider: "wallet" | "google";
+  passwordHash?: string;
+  googleLinked: boolean;
+  authProvider: "wallet" | "google" | "email";
   joinedCommunities: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
@@ -24,13 +26,19 @@ const UserSchema = new Schema<IUser>(
     avatarUrl: { type: String, default: "" },
     karma: { type: Number, default: 0, min: 0 },
     tokenBalance: { type: Number, default: 0, min: 0 },
-    authProvider: { type: String, enum: ["wallet", "google"], required: true },
+    passwordHash: { type: String, select: false },
+    googleLinked: { type: Boolean, default: false },
+    authProvider: { type: String, enum: ["wallet", "google", "email"], required: true },
     joinedCommunities: [{ type: Schema.Types.ObjectId, ref: "Community" }],
   },
   { timestamps: true }
 );
 
-const User: Model<IUser> =
-  mongoose.models.User ?? mongoose.model<IUser>("User", UserSchema);
+// Delete cached model in development so schema changes are picked up after hot-reload
+if (process.env.NODE_ENV !== "production") {
+  delete (mongoose.models as Record<string, unknown>).User;
+}
+
+const User: Model<IUser> = mongoose.models.User ?? mongoose.model<IUser>("User", UserSchema);
 
 export default User;

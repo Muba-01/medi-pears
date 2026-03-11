@@ -17,7 +17,7 @@ export const CreatePostSchema = z.object({
     .string()
     .optional()
     .refine(
-      (v) => !v || v.startsWith("/uploads/") || /^https?:\/\//i.test(v),
+      (v) => !v || v.startsWith("/uploads/") || v.startsWith("/api/media/") || /^https?:\/\//i.test(v),
       "Invalid URL"
     )
     .or(z.literal("")),

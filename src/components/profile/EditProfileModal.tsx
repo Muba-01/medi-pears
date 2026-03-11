@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
-import { X, Loader2, Check } from "lucide-react";
+import { X, Loader2, Check, Zap, Link2, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { shortenAddress } from "@/lib/utils";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -11,13 +12,19 @@ interface EditProfileModalProps {
 }
 
 export default function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
-  const { username: currentUsername, refreshProfile } = useAuth();
+  const { username: currentUsername, walletAddress, googleLinked, walletLinked, provider, refreshProfile, linkWallet, linkGoogle } = useAuth();
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Per-link-button state
+  const [linkingWallet, setLinkingWallet] = useState(false);
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkSuccess, setLinkSuccess] = useState<"wallet" | "google" | null>(null);
 
   // Fetch current profile data when modal opens
   useEffect(() => {
@@ -179,6 +186,99 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             </button>
           </div>
         </form>
+
+        {/* ───────── Connected Accounts ───────── */}
+        <div className="mt-2 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>Connected Accounts</h3>
+
+          <div className="flex flex-col gap-2">
+            {/* Wallet */}
+            <div
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(124,58,237,0.15)" }}>
+                  <Zap size={14} style={{ color: "#a78bfa" }} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>Wallet</p>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    {walletLinked && walletAddress ? shortenAddress(walletAddress) : "Not connected"}
+                  </p>
+                </div>
+              </div>
+              {walletLinked ? (
+                <CheckCircle2 size={16} style={{ color: "#22c55e" }} />
+              ) : provider !== "wallet" ? (
+                <button
+                  onClick={async () => {
+                    setLinkError(null);
+                    setLinkingWallet(true);
+                    try {
+                      await linkWallet();
+                      setLinkSuccess("wallet");
+                      setTimeout(() => setLinkSuccess(null), 2500);
+                    } catch (e) {
+                      setLinkError(e instanceof Error ? e.message : "Failed to connect wallet");
+                    } finally {
+                      setLinkingWallet(false);
+                    }
+                  }}
+                  disabled={linkingWallet || linkingGoogle}
+                  className="px-3 py-1 rounded-lg text-xs font-medium transition-all hover:opacity-80 disabled:opacity-50 flex items-center gap-1.5"
+                  style={{ background: "rgba(124,58,237,0.2)", color: "#a78bfa" }}>
+                  {linkingWallet ? <Loader2 size={11} className="animate-spin" /> : <Link2 size={11} />}
+                  {linkingWallet ? "Connecting..." : linkSuccess === "wallet" ? "Connected!" : "Connect"}
+                </button>
+              ) : null}
+            </div>
+
+            {/* Google */}
+            <div
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(66,133,244,0.15)" }}>
+                  <svg width="14" height="14" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.3 9 3.4l6.7-6.7C35.6 2.5 30.1 0 24 0 14.7 0 6.8 5.4 3 13.3l7.8 6C12.7 13.3 17.9 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17z"/><path fill="#FBBC05" d="M10.8 28.7A14.4 14.4 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7L2.5 13.3A23.9 23.9 0 0 0 0 24c0 3.9.9 7.5 2.5 10.7l8.3-6z"/><path fill="#34A853" d="M24 48c6.1 0 11.2-2 14.9-5.5l-7.5-5.8c-2 1.4-4.6 2.2-7.4 2.2-6.1 0-11.3-3.8-13.2-9.2l-7.8 6C6.8 42.6 14.7 48 24 48z"/></svg>
+                </div>
+                <div>
+                  <p className="text-xs font-medium" style={{ color: "var(--foreground)" }}>Google</p>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    {googleLinked ? "Connected" : "Not connected"}
+                  </p>
+                </div>
+              </div>
+              {googleLinked ? (
+                <CheckCircle2 size={16} style={{ color: "#22c55e" }} />
+              ) : (
+                <button
+                  onClick={async () => {
+                    setLinkError(null);
+                    setLinkingGoogle(true);
+                    try {
+                      await linkGoogle();
+                    } catch (e) {
+                      setLinkError(e instanceof Error ? e.message : "Failed to connect Google");
+                      setLinkingGoogle(false);
+                    }
+                    // linkGoogle triggers a redirect; loading state remains until redirect
+                  }}
+                  disabled={linkingWallet || linkingGoogle}
+                  className="px-3 py-1 rounded-lg text-xs font-medium transition-all hover:opacity-80 disabled:opacity-50 flex items-center gap-1.5"
+                  style={{ background: "rgba(66,133,244,0.2)", color: "#60a5fa" }}>
+                  {linkingGoogle ? <Loader2 size={11} className="animate-spin" /> : <Link2 size={11} />}
+                  {linkingGoogle ? "Redirecting..." : "Connect"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {linkError && (
+            <p className="text-xs mt-2 px-3 py-2 rounded-lg" style={{ color: "#f87171", background: "rgba(248,113,113,0.1)" }}>
+              {linkError}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

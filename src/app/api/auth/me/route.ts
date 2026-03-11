@@ -25,7 +25,11 @@ export async function GET(req: NextRequest) {
               avatarUrl: dbUser.avatarUrl,
               karma: dbUser.karma,
               bio: dbUser.bio ?? null,
+              email: dbUser.email ?? null,
               provider: dbUser.authProvider,
+              walletLinked: !!dbUser.walletAddress,
+              googleLinked: dbUser.authProvider === "google" || !!dbUser.googleLinked,
+              emailLinked: !!dbUser.email && dbUser.authProvider === "email",
             });
           }
         } catch { /* fall through */ }
@@ -54,7 +58,11 @@ export async function GET(req: NextRequest) {
             avatarUrl: dbUser.avatarUrl,
             karma: dbUser.karma,
             bio: dbUser.bio ?? null,
+            email: dbUser.email ?? null,
             provider: dbUser.authProvider,
+            walletLinked: !!dbUser.walletAddress,
+            googleLinked: dbUser.authProvider === "google" || !!dbUser.googleLinked,
+            emailLinked: !!dbUser.email && dbUser.authProvider === "email",
           });
         }
       } catch { /* fall through */ }

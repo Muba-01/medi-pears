@@ -1,7 +1,9 @@
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+import { Readable } from "stream";
+import { pipeline } from "stream/promises";
+import mongoose from "mongoose";
 import { getAuthUser } from "@/lib/getAuthUser";
+import { connectDB } from "@/lib/db";
 
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
@@ -54,9 +56,21 @@ export async function POST(req: NextRequest) {
     .replace(/[^a-z0-9]/g, "");
   const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${originalExt}`;
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, safeName), buffer);
+  const conn = await connectDB();
+  if (!conn.connection.db) {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  }
 
-  return NextResponse.json({ url: `/uploads/${safeName}` }, { status: 201 });
+  const bucket = new mongoose.mongo.GridFSBucket(conn.connection.db, { bucketName: "uploads" });
+  const uploadStream = bucket.openUploadStream(safeName, {
+    metadata: {
+      uploaderId: user._id.toString(),
+      originalName: file.name,
+      mimeType: file.type,
+    },
+  });
+
+  await pipeline(Readable.from(buffer), uploadStream);
+
+  return NextResponse.json({ url: `/api/media/${uploadStream.id.toString()}.${originalExt}` }, { status: 201 });
 }

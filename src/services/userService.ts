@@ -48,6 +48,52 @@ export async function findOrCreateUserByEmail(
   return user;
 }
 
+export async function linkGoogleToUser(
+  userId: string,
+  email: string,
+  avatarUrl?: string
+): Promise<IUser | null> {
+  await connectDB();
+  if (!mongoose.Types.ObjectId.isValid(userId)) return null;
+  const lowerEmail = email.toLowerCase();
+  // Make sure this email isn't already taken by a different user
+  const conflict = await User.findOne({
+    email: lowerEmail,
+    _id: { $ne: new mongoose.Types.ObjectId(userId) },
+  });
+  if (conflict) return null;
+  return User.findByIdAndUpdate(
+    userId,
+    {
+      $set: {
+        email: lowerEmail,
+        googleLinked: true,
+        ...(avatarUrl ? { avatarUrl } : {}),
+      },
+    },
+    { new: true }
+  );
+}
+
+export async function findUserByEmail(email: string): Promise<IUser | null> {
+  await connectDB();
+  return User.findOne({ email: email.toLowerCase() }).select("+passwordHash");
+}
+
+export async function createUserWithEmail(
+  email: string,
+  username: string,
+  passwordHash: string
+): Promise<IUser> {
+  await connectDB();
+  return User.create({
+    email: email.toLowerCase(),
+    username,
+    passwordHash,
+    authProvider: "email",
+  });
+}
+
 export async function getUserById(id: string): Promise<IUser | null> {
   await connectDB();
   if (!mongoose.Types.ObjectId.isValid(id)) return null;
