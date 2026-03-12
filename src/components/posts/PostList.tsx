@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useTransition } from "react";
+import { useTransition, useState, useEffect } from "react";
 import { Flame, Clock, TrendingUp, Zap } from "lucide-react";
 import { Post } from "@/lib/types";
 import PostCard from "./PostCard";
@@ -21,11 +21,16 @@ const SORT_OPTIONS = [
 
 type SortKey = (typeof SORT_OPTIONS)[number]["key"];
 
-export default function PostList({ posts, showSortBar = true }: PostListProps) {
+export default function PostList({ posts: initialPosts, showSortBar = true }: PostListProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+  const [posts, setPosts] = useState(initialPosts);
+
+  useEffect(() => {
+    setPosts(initialPosts);
+  }, [initialPosts]);
 
   const sortBy = (searchParams.get("sort") as SortKey) ?? "hot";
 
@@ -35,6 +40,10 @@ export default function PostList({ posts, showSortBar = true }: PostListProps) {
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });
+  };
+
+  const handlePostDeleted = (postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
   };
 
   return (
@@ -62,7 +71,11 @@ export default function PostList({ posts, showSortBar = true }: PostListProps) {
       )}
 
       {posts.map((post) => (
-        <PostCard key={post.id} post={post} />
+        <PostCard 
+          key={post.id} 
+          post={post}
+          onPostDeleted={() => handlePostDeleted(post.id)}
+        />
       ))}
 
       {posts.length === 0 && (

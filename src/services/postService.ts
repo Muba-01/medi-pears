@@ -41,6 +41,7 @@ type LeanPost = {
   imageUrl?: string;
   linkUrl?: string;
   commentCount: number;
+  trustScore: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -98,6 +99,7 @@ function serializePost(p: LeanPost, currentUserId?: string): PostFE {
     downvotes: downvoteIds.length,
     commentCount: p.commentCount,
     tokenReward: 0,
+    trustScore: p.trustScore,
     createdAt: p.createdAt.toISOString(),
     tags: p.tags,
     imageUrl: p.imageUrl,
@@ -188,7 +190,41 @@ export async function getPostById(
     .lean();
 
   if (!raw) return null;
-  return serializePost(raw as unknown as LeanPost, currentUserId);
+  console.log("[DEBUG] getPostById - raw post trustScore from DB:", raw.trustScore);
+  const serialized = serializePost(raw as unknown as LeanPost, currentUserId);
+  console.log("[DEBUG] getPostById - serialized post trustScore:", serialized.trustScore);
+  return serialized;
+}
+
+async function getTrustScore(text: string): Promise<number> {
+  try {
+    const response = await fetch("http://localhost:5000/predict", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+      console.error(`ML service error: ${response.status} ${response.statusText}`);
+      return 0.5; // Default fallback score
+    }
+
+    const data = await response.json();
+    console.log("[DEBUG] ML service response:", data);
+    
+    // The ML service returns trust_index
+    const score = data.trust_index ?? data.trust_score ?? data.trustScore ?? 0.5;
+    console.log("[DEBUG] Extracted score:", score);
+    
+    const normalizedScore = Math.min(Math.max(typeof score === "number" ? score : 0.5, 0), 1);
+    console.log("[DEBUG] Normalized score:", normalizedScore);
+    return normalizedScore;
+  } catch (error) {
+    console.error("Failed to fetch trust score from ML service:", error);
+    return 0.5; // Default fallback score on error
+  }
 }
 
 export async function createPost(
@@ -202,6 +238,12 @@ export async function createPost(
   }).lean();
   if (!community) throw new Error("Community not found");
 
+  // Get trust score from ML service
+  const textToScore = input.content || input.title;
+  console.log("[DEBUG] Text to score:", textToScore);
+  const trustScore = await getTrustScore(textToScore);
+  console.log("[DEBUG] Trust score from AI service:", trustScore);
+
   const created = await Post.create({
     title: input.title,
     content: input.content,
@@ -211,13 +253,16 @@ export async function createPost(
     tags: input.tags ?? [],
     imageUrl: input.imageUrl || undefined,
     linkUrl: input.linkUrl || undefined,
+    trustScore,
   });
+  console.log("[DEBUG] Post created with trustScore:", created.trustScore);
 
   const populated = await Post.findById(created._id)
     .populate<{ author: PopulatedAuthor }>("author", POPULATE_AUTHOR)
     .populate<{ community: PopulatedCommunity }>("community", POPULATE_COMMUNITY)
     .lean();
 
+  console.log("[DEBUG] Post fetched from DB with trustScore:", populated?.trustScore);
   return serializePost(populated as unknown as LeanPost, authorId);
 }
 
@@ -227,11 +272,18 @@ export async function votePost(
   voteType: "up" | "down"
 ): Promise<PostFE | null> {
   if (!mongoose.Types.ObjectId.isValid(postId)) return null;
+  if (!mongoose.Types.ObjectId.isValid(userId)) return null;
   await connectDB();
 
   const userObjId = new mongoose.Types.ObjectId(userId);
   const post = await Post.findById(postId);
   if (!post) return null;
+
+  // Prevent users from voting on their own posts
+  if (post.author.equals(userObjId)) {
+    console.log("[DEBUG] votePost - user attempted to vote on their own post");
+    throw new Error("You cannot vote on your own post");
+  }
 
   const hasUpvoted = post.upvotes.some((id) => id.equals(userObjId));
   const hasDownvoted = post.downvotes.some((id) => id.equals(userObjId));
@@ -261,4 +313,45 @@ export async function votePost(
     .lean();
 
   return serializePost(populated as unknown as LeanPost, userId);
+}
+
+export async function deletePost(
+  postId: string,
+  userId: string
+): Promise<boolean> {
+  if (!mongoose.Types.ObjectId.isValid(postId)) {
+    console.log("[DEBUG] deletePost - invalid post ID:", postId);
+    return false;
+  }
+  
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    console.log("[DEBUG] deletePost - invalid user ID:", userId);
+    throw new Error("Invalid user ID");
+  }
+
+  await connectDB();
+
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  
+  // Delete only the post owned by this user
+  const result = await Post.deleteOne({
+    _id: postId,
+    author: userObjectId,
+  });
+
+  console.log("[DEBUG] deletePost - deletion result:", { deletedCount: result.deletedCount });
+
+  // Check if the post was deleted
+  if (result.deletedCount === 0) {
+    // Either the post doesn't exist or the user is not the owner
+    throw new Error("Unauthorized: You can only delete your own posts");
+  }
+
+  if (result.deletedCount === 1) {
+    console.log("[DEBUG] deletePost - post deleted successfully");
+    return true;
+  }
+
+  // Should not reach here, but handle unexpected cases
+  throw new Error("Unexpected error during post deletion");
 }

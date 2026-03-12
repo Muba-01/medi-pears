@@ -16,6 +16,7 @@ export interface IPost extends Document {
   imageUrl?: string;
   linkUrl?: string;
   commentCount: number;
+  trustScore: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +35,7 @@ const PostSchema = new Schema<IPost>(
     imageUrl: { type: String, trim: true },
     linkUrl: { type: String, trim: true },
     commentCount: { type: Number, default: 0, min: 0 },
+    trustScore: { type: Number, default: 0.5, min: 0, max: 1 },
   },
   { timestamps: true }
 );

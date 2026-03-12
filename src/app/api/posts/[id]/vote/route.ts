@@ -30,10 +30,17 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     );
   }
 
-  const updated = await votePost(id, user._id.toString(), parsed.data.voteType);
-  if (!updated) {
-    return NextResponse.json({ error: "Post not found" }, { status: 404 });
+  try {
+    const updated = await votePost(id, user._id.toString(), parsed.data.voteType);
+    if (!updated) {
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    }
+    return NextResponse.json({ post: updated });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to vote on post";
+    if (message.includes("own post")) {
+      return NextResponse.json({ error: message }, { status: 403 });
+    }
+    return NextResponse.json({ error: message }, { status: 400 });
   }
-
-  return NextResponse.json({ post: updated });
 }

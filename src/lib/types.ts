@@ -38,6 +38,7 @@ export interface Post {
   downvotes: number;
   commentCount: number;
   tokenReward: number;
+  trustScore: number;
   createdAt: string;
   tags: string[];
   imageUrl?: string;

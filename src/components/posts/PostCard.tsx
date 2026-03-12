@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowUp,
   ArrowDown,
@@ -13,6 +14,7 @@ import {
   ExternalLink,
   Image as ImageIcon,
   Check,
+  Trash2,
 } from "lucide-react";
 import { Post } from "@/lib/types";
 import { cn, formatNumber, timeAgo } from "@/lib/utils";
@@ -21,16 +23,23 @@ import { useAuth } from "@/contexts/AuthContext";
 interface PostCardProps {
   post: Post;
   compact?: boolean;
+  onPostDeleted?: () => void;
 }
 
-export default function PostCard({ post, compact = false }: PostCardProps) {
-  const { isAuthenticated } = useAuth();
+export default function PostCard({ post, compact = false, onPostDeleted }: PostCardProps) {
+  const { isAuthenticated, userId } = useAuth();
+  const router = useRouter();
   const [upvotes, setUpvotes] = useState(post.upvotes);
   const [downvotes, setDownvotes] = useState(post.downvotes);
   const [userVote, setUserVote] = useState<"up" | "down" | null>(post.userVote ?? null);
   const [saved, setSaved] = useState(false);
   const [voteError, setVoteError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const handleShare = () => {
     const url = `${window.location.origin}/post/${post.id}`;
@@ -41,9 +50,15 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
   };
 
   const score = upvotes - downvotes;
+  const isPostAuthor = userId === post.authorId;
 
   const handleVote = async (direction: "up" | "down") => {
     if (!isAuthenticated) {
+      setVoteError(true);
+      setTimeout(() => setVoteError(false), 1500);
+      return;
+    }
+    if (isPostAuthor) {
       setVoteError(true);
       setTimeout(() => setVoteError(false), 1500);
       return;
@@ -83,6 +98,48 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
     }
   };
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    if (showMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showMenu]);
+
+  const isPostOwner = userId === post.authorId;
+
+  const handleDelete = async () => {
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/posts/${post.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setDeleteError(data.error || "Failed to delete post");
+        return;
+      }
+      setShowDeleteConfirm(false);
+      setShowMenu(false);
+      if (onPostDeleted) {
+        onPostDeleted();
+      } else {
+        // Redirect to home if no callback provided
+        router.push("/");
+      }
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete post");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <article
       className="rounded-xl border hover:border-purple-500/40 transition-all group"
@@ -91,13 +148,14 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
         {/* Vote column */}
         <div
           className="flex flex-col items-center gap-1 px-2 pt-3 pb-3 rounded-l-xl transition-colors"
-          title={!isAuthenticated ? "Sign in to vote" : undefined}
+          title={!isAuthenticated ? "Sign in to vote" : isPostAuthor ? "You cannot vote on your own post" : undefined}
           style={{ background: voteError ? "rgba(239,68,68,0.15)" : "var(--surface-2)" }}
         >
           <button
             onClick={() => handleVote("up")}
+            disabled={isPostAuthor}
             className={cn(
-              "w-7 h-7 flex items-center justify-center rounded-md transition-all hover:bg-white/10",
+              "w-7 h-7 flex items-center justify-center rounded-md transition-all hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed",
               userVote === "up" ? "text-orange-400" : ""
             )}
             style={{ color: userVote === "up" ? "#fb923c" : "var(--muted)" }}>
@@ -117,7 +175,8 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
           </span>
           <button
             onClick={() => handleVote("down")}
-            className="w-7 h-7 flex items-center justify-center rounded-md transition-all hover:bg-white/10"
+            disabled={isPostAuthor}
+            className="w-7 h-7 flex items-center justify-center rounded-md transition-all hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ color: userVote === "down" ? "#60a5fa" : "var(--muted)" }}>
             <ArrowDown size={16} />
           </button>
@@ -270,14 +329,78 @@ export default function PostCard({ post, compact = false }: PostCardProps) {
               <span className="hidden sm:inline">{saved ? "Saved" : "Save"}</span>
             </button>
 
-            <button
-              className="ml-auto w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
-              style={{ color: "var(--muted)" }}>
-              <MoreHorizontal size={14} />
-            </button>
+            <div className="ml-auto relative" ref={menuRef}>
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
+                style={{ color: "var(--muted)" }}>
+                <MoreHorizontal size={14} />
+              </button>
+
+              {showMenu && (
+                <div
+                  className="absolute right-0 mt-2 w-48 rounded-lg border shadow-lg z-50"
+                  style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                  {isPostOwner && (
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-red-500/10 transition-colors"
+                      style={{ color: "#ef4444" }}>
+                      <Trash2 size={14} />
+                      Delete Post
+                    </button>
+                  )}
+                  {!isPostOwner && (
+                    <div className="px-4 py-2 text-xs" style={{ color: "var(--muted)" }}>
+                      No actions available
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Delete confirmation dialog */}
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div
+                className="rounded-lg border p-6 max-w-sm"
+                style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                <h3
+                  className="text-lg font-semibold mb-2"
+                  style={{ color: "var(--foreground)" }}>
+                  Delete Post?
+                </h3>
+                <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
+                  This action cannot be undone. Are you sure you want to delete this post?
+                </p>
+                {deleteError && (
+                  <p className="text-sm mb-4" style={{ color: "#ef4444" }}>
+                    {deleteError}
+                  </p>
+                )}
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={deleteLoading}
+                    className="px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/5 transition-colors disabled:opacity-50"
+                    style={{ color: "var(--foreground)" }}>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleteLoading}
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50"
+                    style={{ background: "#ef4444" }}>
+                    {deleteLoading ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </article>
   );
 }
+
