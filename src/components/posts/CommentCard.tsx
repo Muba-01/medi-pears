@@ -15,7 +15,7 @@ interface CommentCardProps {
 
 export default function CommentCard({ comment, depth = 0 }: CommentCardProps) {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userId } = useAuth();
 
   const [upvotes, setUpvotes] = useState(comment.upvotes);
   const [downvotes, setDownvotes] = useState(comment.downvotes);
@@ -25,9 +25,11 @@ export default function CommentCard({ comment, depth = 0 }: CommentCardProps) {
   const [replyLoading, setReplyLoading] = useState(false);
 
   const score = upvotes - downvotes;
+  const isCommentAuthor = userId === comment.authorId;
 
   const handleVote = async (direction: "up" | "down") => {
     if (!isAuthenticated) return;
+    if (isCommentAuthor) return;
 
     // Optimistic update
     const prevUpvotes = upvotes;
@@ -83,8 +85,8 @@ export default function CommentCard({ comment, depth = 0 }: CommentCardProps) {
   };
 
   return (
-    <div className={cn("flex gap-3", depth > 0 && "ml-6 pl-4 border-l")}
-      style={{ borderColor: depth > 0 ? "var(--border)" : "transparent" }}>
+    <div className={cn("flex gap-3", depth > 0 && "ml-4 pl-3 border-l-2")}
+      style={{ borderColor: depth > 0 ? "rgba(139, 92, 246, 0.3)" : "transparent" }}>
       {/* Avatar */}
       {comment.author.avatar ? (
         <img
@@ -129,7 +131,9 @@ export default function CommentCard({ comment, depth = 0 }: CommentCardProps) {
           <div className="flex items-center gap-0.5">
             <button
               onClick={() => handleVote("up")}
-              className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors"
+              disabled={isCommentAuthor}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isCommentAuthor ? "You cannot vote on your own comment" : undefined}
               style={{ color: userVote === "up" ? "#fb923c" : "var(--muted)" }}>
               <ArrowUp size={13} />
             </button>
@@ -139,7 +143,9 @@ export default function CommentCard({ comment, depth = 0 }: CommentCardProps) {
             </span>
             <button
               onClick={() => handleVote("down")}
-              className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors"
+              disabled={isCommentAuthor}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isCommentAuthor ? "You cannot vote on your own comment" : undefined}
               style={{ color: userVote === "down" ? "#60a5fa" : "var(--muted)" }}>
               <ArrowDown size={13} />
             </button>

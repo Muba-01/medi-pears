@@ -105,10 +105,17 @@ export async function voteComment(
 ): Promise<{ upvotes: number; downvotes: number; score: number } | null> {
   await connectDB();
   if (!mongoose.Types.ObjectId.isValid(commentId)) return null;
+  if (!mongoose.Types.ObjectId.isValid(userId)) return null;
 
   const uid = new mongoose.Types.ObjectId(userId);
   const comment = await Comment.findById(commentId);
   if (!comment) return null;
+
+  // Prevent users from voting on their own comments
+  if (comment.author.equals(uid)) {
+    console.log("[DEBUG] voteComment - user attempted to vote on their own comment");
+    throw new Error("You cannot vote on your own comment");
+  }
 
   const hasUp   = comment.upvotes.some((id) => id.equals(uid));
   const hasDown = comment.downvotes.some((id) => id.equals(uid));

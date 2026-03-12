@@ -27,10 +27,17 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Invalid vote type" }, { status: 422 });
   }
 
-  const result = await voteComment(id, user._id.toString(), parsed.data.voteType);
-  if (!result) {
-    return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+  try {
+    const result = await voteComment(id, user._id.toString(), parsed.data.voteType);
+    if (!result) {
+      return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    }
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to vote on comment";
+    if (message.includes("own comment")) {
+      return NextResponse.json({ error: message }, { status: 403 });
+    }
+    return NextResponse.json({ error: message }, { status: 400 });
   }
-
-  return NextResponse.json(result);
 }

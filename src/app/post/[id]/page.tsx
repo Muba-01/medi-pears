@@ -13,6 +13,58 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+// Helper to build a tree structure for nested comments
+function buildCommentTree(comments: Comment[]): Array<{ comment: Comment; replies: any[] }> {
+  const commentMap = new Map<string, { comment: Comment; replies: any[] }>();
+  
+  // Create entries for all comments
+  comments.forEach((comment) => {
+    if (!commentMap.has(comment.id)) {
+      commentMap.set(comment.id, { comment, replies: [] });
+    }
+  });
+
+  // Build parent-child relationships
+  const rootComments: Array<{ comment: Comment; replies: any[] }> = [];
+  comments.forEach((comment) => {
+    const node = commentMap.get(comment.id)!;
+    if (comment.parentComment) {
+      const parentNode = commentMap.get(comment.parentComment);
+      if (parentNode) {
+        parentNode.replies.push(node);
+      }
+    } else {
+      rootComments.push(node);
+    }
+  });
+
+  return rootComments;
+}
+
+// Recursive component to render comment tree
+function RenderCommentTree({
+  node,
+  depth = 0,
+}: {
+  node: { comment: Comment; replies: any[] };
+  depth?: number;
+}) {
+  return (
+    <>
+      <div key={node.comment.id} className="px-5 py-4">
+        <CommentCard comment={node.comment} depth={depth} />
+      </div>
+      {node.replies.length > 0 && (
+        <>
+          {node.replies.map((reply) => (
+            <RenderCommentTree key={reply.comment.id} node={reply} depth={depth + 1} />
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
 export default async function PostPage({ params }: PageProps) {
   const { id } = await params;
   if (!id) notFound();
@@ -156,10 +208,8 @@ export default async function PostPage({ params }: PageProps) {
               </div>
             ) : (
               <div className="flex flex-col divide-y" style={{ borderColor: "var(--border)" }}>
-                {comments.map((comment) => (
-                  <div key={comment.id} className="px-5 py-4">
-                    <CommentCard comment={comment} />
-                  </div>
+                {buildCommentTree(comments).map((node) => (
+                  <RenderCommentTree key={node.comment.id} node={node} />
                 ))}
               </div>
             )}
