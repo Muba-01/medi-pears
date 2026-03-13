@@ -56,6 +56,7 @@ export const UpdateProfileSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/, "Only letters, numbers, hyphens and underscores allowed")
     .optional(),
   bio: z.string().max(300, "Bio cannot exceed 300 characters").optional(),
+  avatarUrl: z.string().optional(),
 });
 
 export type CreatePostInput = z.infer<typeof CreatePostSchema>;

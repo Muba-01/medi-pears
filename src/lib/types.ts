@@ -40,6 +40,7 @@ export interface Post {
   tokenReward: number;
   trustScore: number;
   createdAt: string;
+  updatedAt: string;
   tags: string[];
   imageUrl?: string;
   linkUrl?: string;
@@ -64,5 +65,6 @@ export interface Comment {
   score: number;
   parentComment: string | null;
   createdAt: string;
+  editedAt: string | null;
   userVote?: "up" | "down" | null;
 }

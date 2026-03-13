@@ -29,6 +29,15 @@ export async function getCommunities(): Promise<ICommunity[]> {
   return Community.find().sort({ membersCount: -1 }).limit(20).lean();
 }
 
+export async function searchCommunities(query: string, limit: number = 5): Promise<ICommunity[]> {
+  await connectDB();
+  if (!query.trim()) return [];
+  const regex = new RegExp(query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+  return Community.find({
+    $or: [{ name: regex }, { description: regex }, { slug: regex }]
+  }).sort({ membersCount: -1 }).limit(limit).lean();
+}
+
 export async function incrementMembersCount(slug: string): Promise<void> {
   await connectDB();
   await Community.findOneAndUpdate({ slug }, { $inc: { membersCount: 1 } });
