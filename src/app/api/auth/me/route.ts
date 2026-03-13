@@ -14,6 +14,10 @@ export async function GET(req: NextRequest) {
   if (token) {
     const payload = await verifyJWT(token);
     if (payload?.walletAddress) {
+      console.info("[wallet-auth] me wallet session", {
+        sessionWalletAddress: payload.walletAddress,
+      });
+
       if (process.env.MONGODB_URI) {
         try {
           const dbUser = await getUserByWallet(payload.walletAddress);

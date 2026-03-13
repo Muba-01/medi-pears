@@ -5,17 +5,11 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
-import { BrowserProvider, Wallet } from "ethers";
+import { BrowserProvider } from "ethers";
 import { signIn, signOut, useSession } from "next-auth/react";
-
-// Dev-mode test wallet (never use in production)
-const DEV_PRIVATE_KEY =
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const IS_DEV_MODE =
-  process.env.NEXT_PUBLIC_DEV_WALLET === "true" &&
-  process.env.NODE_ENV !== "production";
 
 interface AuthState {
   walletAddress: string | null;
@@ -61,9 +55,29 @@ const EMPTY: AuthState = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function normalizeWalletAddress(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return /^0x[0-9a-fA-F]{40}$/.test(trimmed) ? trimmed.toLowerCase() : null;
+}
+
+async function requestProviderAccounts(method: "eth_accounts" | "eth_requestAccounts"): Promise<string[]> {
+  if (typeof window === "undefined" || !window.ethereum) return [];
+  const result = await window.ethereum.request({ method });
+  if (!Array.isArray(result)) return [];
+  return result
+    .map((entry) => normalizeWalletAddress(entry))
+    .filter((entry): entry is string => !!entry);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({ ...EMPTY, isLoading: true });
   const { data: nextAuthSession, status: sessionStatus } = useSession();
+  const stateRef = useRef<AuthState>(state);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const setError = (error: string | null) =>
     setState((s) => ({ ...s, error, isLoading: false }));
@@ -72,11 +86,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
+        const providerWalletAddress = (await requestProviderAccounts("eth_accounts"))[0] ?? null;
         const res = await fetch("/api/auth/me");
         if (res.ok) {
           const data = await res.json();
+          const sessionWalletAddress = normalizeWalletAddress(data.walletAddress);
+          console.info("[wallet-auth] session restore", {
+            providerWalletAddress,
+            sessionWalletAddress,
+            matches:
+              !!providerWalletAddress &&
+              !!sessionWalletAddress &&
+              providerWalletAddress === sessionWalletAddress,
+          });
+
           setState({
-            walletAddress: data.walletAddress ?? null,
+            walletAddress: sessionWalletAddress,
             userId: data.userId ?? null,
             username: data.username ?? null,
             avatarUrl: data.avatarUrl ?? null,
@@ -135,29 +160,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async () => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
-      let address: string;
-      let signature: string;
-
-      if (IS_DEV_MODE) {
-        const devWallet = new Wallet(DEV_PRIVATE_KEY);
-        address = devWallet.address;
-        const nonceRes = await fetch(`/api/auth/nonce?address=${address}`);
-        if (!nonceRes.ok) throw new Error((await nonceRes.json()).error ?? "Failed to get nonce.");
-        const { message } = await nonceRes.json();
-        signature = await devWallet.signMessage(message);
-      } else {
-        if (typeof window === "undefined" || !window.ethereum) {
-          throw new Error("MetaMask is not installed. Please install it from metamask.io to continue.");
-        }
-        const provider = new BrowserProvider(window.ethereum);
-        const accounts = await provider.send("eth_requestAccounts", []);
-        address = accounts[0];
-        if (!address) throw new Error("No account selected.");
-        const nonceRes = await fetch(`/api/auth/nonce?address=${address}`);
-        if (!nonceRes.ok) throw new Error((await nonceRes.json()).error ?? "Failed to get nonce.");
-        const { message } = await nonceRes.json();
-        signature = await (new BrowserProvider(window.ethereum)).getSigner().then((s) => s.signMessage(message));
+      if (typeof window === "undefined" || !window.ethereum) {
+        throw new Error("MetaMask is not installed. Please install it from metamask.io to continue.");
       }
+
+      const accounts = await requestProviderAccounts("eth_requestAccounts");
+      const address = accounts[0];
+      if (!address) throw new Error("No account selected.");
+
+      console.info("[wallet-auth] provider returned wallet", {
+        providerWalletAddress: address,
+      });
+
+      const nonceRes = await fetch(`/api/auth/nonce?address=${address}`);
+      if (!nonceRes.ok) throw new Error((await nonceRes.json()).error ?? "Failed to get nonce.");
+      const { message } = await nonceRes.json();
+
+      const signer = await new BrowserProvider(window.ethereum).getSigner();
+      const signerAddress = normalizeWalletAddress(await signer.getAddress());
+      if (signerAddress && signerAddress !== address) {
+        console.warn("[wallet-auth] signer address differs from requested provider account", {
+          providerWalletAddress: address,
+          signerWalletAddress: signerAddress,
+        });
+      }
+      const signature = await signer.signMessage(message);
 
       const verifyRes = await fetch("/api/auth/verify", {
         method: "POST",
@@ -166,9 +193,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (!verifyRes.ok) throw new Error((await verifyRes.json()).error ?? "Verification failed.");
       const data = await verifyRes.json();
+      const sessionWalletAddress = normalizeWalletAddress(data.walletAddress);
+
+      console.info("[wallet-auth] verification complete", {
+        providerWalletAddress: address,
+        sessionWalletAddress,
+        matches:
+          !!sessionWalletAddress &&
+          sessionWalletAddress === address,
+      });
 
       setState({
-        walletAddress: data.walletAddress,
+        walletAddress: sessionWalletAddress ?? address,
         userId: data.userId ?? null,
         username: data.username ?? null,
         avatarUrl: null,
@@ -190,20 +226,99 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     await signOut({ redirect: false });
+    console.info("[wallet-auth] cleared wallet auth session");
     setState({ ...EMPTY });
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.ethereum) return;
+
+    const handleAccountsChanged = (accounts: unknown) => {
+      const providerWalletAddress = Array.isArray(accounts)
+        ? normalizeWalletAddress(accounts[0])
+        : null;
+      const current = stateRef.current;
+      const sessionWalletAddress = normalizeWalletAddress(current.walletAddress);
+
+      console.info("[wallet-auth] provider accounts changed", {
+        providerWalletAddress,
+        sessionWalletAddress,
+        matches:
+          !!providerWalletAddress &&
+          !!sessionWalletAddress &&
+          providerWalletAddress === sessionWalletAddress,
+      });
+
+      setState((prev) => {
+        if (!prev.isAuthenticated || prev.provider === "wallet") {
+          return { ...prev, walletAddress: providerWalletAddress };
+        }
+        return prev;
+      });
+
+      if (
+        current.isAuthenticated &&
+        current.provider === "wallet" &&
+        (!providerWalletAddress || (sessionWalletAddress && providerWalletAddress !== sessionWalletAddress))
+      ) {
+        void logout();
+      }
+    };
+
+    const handleChainChanged = (_chainId: unknown) => {
+      void requestProviderAccounts("eth_accounts")
+        .then((accounts) => {
+          const providerWalletAddress = accounts[0] ?? null;
+          const current = stateRef.current;
+          const sessionWalletAddress = normalizeWalletAddress(current.walletAddress);
+
+          console.info("[wallet-auth] provider chain changed", {
+            providerWalletAddress,
+            sessionWalletAddress,
+            matches:
+              !!providerWalletAddress &&
+              !!sessionWalletAddress &&
+              providerWalletAddress === sessionWalletAddress,
+          });
+
+          setState((prev) => {
+            if (!prev.isAuthenticated || prev.provider === "wallet") {
+              return { ...prev, walletAddress: providerWalletAddress };
+            }
+            return prev;
+          });
+        })
+        .catch((err: unknown) => {
+          console.warn("[wallet-auth] failed to sync wallet after chain change", err);
+        });
+    };
+
+    window.ethereum.on("accountsChanged", handleAccountsChanged);
+    window.ethereum.on("chainChanged", handleChainChanged);
+
+    return () => {
+      window.ethereum?.removeListener("accountsChanged", handleAccountsChanged);
+      window.ethereum?.removeListener("chainChanged", handleChainChanged);
+    };
+  }, [logout]);
 
   const refreshProfile = useCallback(async () => {
     try {
       const res = await fetch("/api/auth/me");
       if (res.ok) {
         const data = await res.json();
+        const sessionWalletAddress = normalizeWalletAddress(data.walletAddress);
+
+        console.info("[wallet-auth] refresh profile", {
+          sessionWalletAddress,
+        });
+
         setState((prev) => ({
           ...prev,
           username: data.username ?? prev.username,
           avatarUrl: 'avatarUrl' in data ? data.avatarUrl : prev.avatarUrl,
           email: data.email ?? prev.email,
-          walletAddress: data.walletAddress ?? prev.walletAddress,
+          walletAddress: "walletAddress" in data ? sessionWalletAddress : prev.walletAddress,
           walletLinked: data.walletLinked ?? prev.walletLinked,
           googleLinked: data.googleLinked ?? prev.googleLinked,
           emailLinked: data.emailLinked ?? prev.emailLinked,
@@ -216,11 +331,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined" || !window.ethereum) {
       throw new Error("MetaMask is not installed.");
     }
-    const { BrowserProvider } = await import("ethers");
-    const provider = new BrowserProvider(window.ethereum);
-    const accounts = await provider.send("eth_requestAccounts", []);
-    const address: string = accounts[0];
+
+    const accounts = await requestProviderAccounts("eth_requestAccounts");
+    const address = accounts[0];
     if (!address) throw new Error("No account selected.");
+
+    console.info("[wallet-auth] provider returned wallet for linking", {
+      providerWalletAddress: address,
+    });
 
     const nonceRes = await fetch(`/api/auth/nonce?address=${address}`);
     if (!nonceRes.ok) throw new Error((await nonceRes.json()).error ?? "Failed to get nonce.");
@@ -232,7 +350,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const linkRes = await fetch("/api/auth/link-wallet", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address, signature, message }),
+      body: JSON.stringify({ address, signature }),
     });
     if (!linkRes.ok) {
       const data = await linkRes.json().catch(() => ({}));

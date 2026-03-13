@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Signature does not match address" }, { status: 401 });
   }
 
+  const normalizedWalletAddress = address.toLowerCase();
   const token = await signJWT(address.toLowerCase());
 
   // Upsert user record in MongoDB (no-op if DB not configured)
@@ -79,9 +80,15 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({
-    walletAddress: address.toLowerCase(),
+    walletAddress: normalizedWalletAddress,
     username: dbUser?.username ?? null,
     userId: dbUser?._id?.toString() ?? null,
+  });
+
+  console.info("[wallet-auth] verify success", {
+    providerWalletAddress: normalizedWalletAddress,
+    sessionWalletAddress: normalizedWalletAddress,
+    matches: true,
   });
 
   res.cookies.set(NONCE_COOKIE, "", {
