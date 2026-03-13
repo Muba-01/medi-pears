@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Zap, Bell, Menu, X, LogOut, User, Plus } from "lucide-react";
@@ -23,11 +23,64 @@ export default function Navbar() {
   const [createCommunityOpen, setCreateCommunityOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"signin" | "signup">("signin");
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = (value: string) => {
     const q = value.trim();
     if (q) router.push(`/search?q=${encodeURIComponent(q)}`);
+    setShowSuggestions(false);
   };
+
+  const fetchSuggestions = async (query: string) => {
+    if (!query.trim()) {
+      setSearchSuggestions([]);
+      return;
+    }
+
+    setSuggestionsLoading(true);
+    try {
+      const response = await fetch(`/api/search-suggestions?q=${encodeURIComponent(query)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSearchSuggestions(data);
+      } else {
+        setSearchSuggestions([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch search suggestions:', error);
+      setSearchSuggestions([]);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchValue.trim()) {
+        fetchSuggestions(searchValue);
+      } else {
+        setSearchSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 300); // Debounce for 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [searchValue]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogin = async () => {
     setLoginPending(true);
@@ -43,9 +96,13 @@ export default function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 flex-shrink-0">
           <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center"
+            className="w-7 h-7 rounded-lg flex items-center justify-center relative"
             style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)" }}>
-            <Zap size={14} className="text-white" />
+            <img
+              src="/medipear-logo.svg"
+              alt="Medipear"
+              className="w-5 h-5"
+            />
           </div>
           <span className="font-bold text-base hidden sm:block" style={{ color: "var(--foreground)" }}>
             Medipear
@@ -53,7 +110,7 @@ export default function Navbar() {
         </Link>
 
         {/* Search bar */}
-        <div className="flex-1 max-w-xl hidden md:block">
+        <div className="flex-1 max-w-xl hidden md:block relative" ref={searchRef}>
           <div
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all"
             style={{
@@ -65,14 +122,98 @@ export default function Navbar() {
               type="text"
               placeholder="Search communities and posts..."
               value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
+              onChange={(e) => {
+                setSearchValue(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => {
+                setSearchFocused(true);
+                if (searchValue.trim()) setShowSuggestions(true);
+              }}
               onBlur={() => setSearchFocused(false)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSearch(searchValue); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearch(searchValue);
+                if (e.key === "Escape") setShowSuggestions(false);
+              }}
               className="bg-transparent outline-none text-sm w-full"
               style={{ color: "var(--foreground)" }}
             />
           </div>
+
+          {/* Search Suggestions Dropdown */}
+          {showSuggestions && (searchSuggestions.length > 0 || suggestionsLoading) && (
+            <div
+              className="absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-2xl z-50 overflow-hidden"
+              style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+              {suggestionsLoading ? (
+                <div className="px-4 py-3 text-sm" style={{ color: "var(--muted)" }}>
+                  Searching...
+                </div>
+              ) : searchSuggestions.length > 0 ? (
+                <div className="max-h-80 overflow-y-auto">
+                  {searchSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        if (suggestion.type === 'community') {
+                          router.push(`/p/${suggestion.slug}`);
+                        } else {
+                          router.push(`/post/${suggestion.id}`);
+                        }
+                        setShowSuggestions(false);
+                        setSearchValue("");
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-white/5 transition-colors border-b last:border-b-0"
+                      style={{ borderColor: "var(--border)" }}>
+                      <div className="flex items-center gap-3">
+                        {suggestion.type === 'community' ? (
+                          <>
+                            <span className="text-lg">{suggestion.iconUrl || "🍐"}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate" style={{ color: "var(--foreground)" }}>
+                                🍐/{suggestion.slug}
+                              </div>
+                              <div className="text-sm truncate" style={{ color: "var(--muted)" }}>
+                                {suggestion.description || "Community"}
+                              </div>
+                            </div>
+                            <div className="text-xs px-2 py-1 rounded-full" style={{ background: "var(--surface-2)", color: "var(--muted)" }}>
+                              {suggestion.membersCount} members
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-8 h-8 rounded bg-purple-500/10 flex items-center justify-center">
+                              <Search size={14} style={{ color: "#a78bfa" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate" style={{ color: "var(--foreground)" }}>
+                                {suggestion.title}
+                              </div>
+                              <div className="text-sm truncate" style={{ color: "var(--muted)" }}>
+                                Post in 🍐/{suggestion.community?.slug}
+                              </div>
+                            </div>
+                            <div className="text-xs px-2 py-1 rounded-full" style={{ background: "var(--surface-2)", color: "var(--muted)" }}>
+                              {suggestion.upvotes - suggestion.downvotes} votes
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                  <div className="px-4 py-2 border-t" style={{ borderColor: "var(--border)" }}>
+                    <button
+                      onClick={() => handleSearch(searchValue)}
+                      className="w-full text-left text-sm hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                      style={{ color: "var(--accent)" }}>
+                      Search for "{searchValue}" →
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <div className="ml-auto flex items-center gap-2">

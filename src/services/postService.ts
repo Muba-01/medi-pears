@@ -101,6 +101,7 @@ function serializePost(p: LeanPost, currentUserId?: string): PostFE {
     tokenReward: 0,
     trustScore: p.trustScore,
     createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
     tags: p.tags,
     imageUrl: p.imageUrl,
     linkUrl: p.linkUrl,
@@ -313,6 +314,52 @@ export async function votePost(
     .lean();
 
   return serializePost(populated as unknown as LeanPost, userId);
+}
+
+export async function updatePost(
+  postId: string,
+  userId: string,
+  updates: { title: string; content: string; tags: string[] }
+): Promise<PostFE | null> {
+  if (!mongoose.Types.ObjectId.isValid(postId)) {
+    console.log("[DEBUG] updatePost - invalid post ID:", postId);
+    return null;
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    console.log("[DEBUG] updatePost - invalid user ID:", userId);
+    throw new Error("Invalid user ID");
+  }
+
+  await connectDB();
+
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+
+  // Update only the post owned by this user
+  const result = await Post.findOneAndUpdate(
+    {
+      _id: postId,
+      author: userObjectId,
+    },
+    {
+      ...updates,
+      updatedAt: new Date(),
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  ).populate<{ author: PopulatedAuthor }>("author", POPULATE_AUTHOR)
+    .populate<{ community: PopulatedCommunity }>("community", POPULATE_COMMUNITY)
+    .lean();
+
+  if (!result) {
+    // Either the post doesn't exist or the user is not the owner
+    throw new Error("Unauthorized: You can only edit your own posts");
+  }
+
+  console.log("[DEBUG] updatePost - update successful for post:", postId);
+  return serializePost(result as unknown as LeanPost, userId);
 }
 
 export async function deletePost(

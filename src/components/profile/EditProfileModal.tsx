@@ -16,6 +16,10 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [originalAvatarUrl, setOriginalAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -31,16 +35,77 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
     if (!isOpen) return;
     setError(null);
     setSuccess(false);
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setOriginalAvatarUrl(null);
     // Pre-fill from context
     setUsername(currentUsername ?? "");
-    // Fetch bio from /api/auth/me
+    // Fetch bio and avatar from /api/auth/me
     fetch("/api/auth/me")
       .then((r) => r.json())
       .then((d) => {
         if (d.bio !== undefined) setBio(d.bio ?? "");
+        if (d.avatarUrl) {
+          setAvatarPreview(d.avatarUrl);
+          setOriginalAvatarUrl(d.avatarUrl);
+        }
       })
       .catch(() => {});
   }, [isOpen, currentUsername]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file.');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be less than 5MB.');
+      return;
+    }
+
+    setAvatarFile(file);
+    setError(null);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setAvatarPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadAvatar = async (): Promise<string | null> => {
+    if (!avatarFile) return null;
+
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+
+      const res = await fetch('/api/upload/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to upload avatar');
+      }
+
+      const data = await res.json();
+      return data.avatarUrl;
+    } catch (err) {
+      throw err;
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleClose = useCallback(() => {
     if (!loading) onClose();
@@ -58,25 +123,50 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
     e.preventDefault();
     setError(null);
     setLoading(true);
+
     try {
+      let avatarUrl = null;
+
+      // Upload avatar if changed
+      if (avatarFile) {
+        avatarUrl = await uploadAvatar();
+      }
+
+      // Update profile
+      const updateData: any = {
+        username: username.trim() || undefined,
+        bio: bio.trim() || undefined,
+      };
+
+      // Handle avatar changes
+      if (avatarUrl) {
+        // New avatar uploaded
+        updateData.avatarUrl = avatarUrl;
+      } else if (originalAvatarUrl && !avatarPreview) {
+        // Avatar was removed
+        updateData.avatarUrl = "";
+      }
+
       const res = await fetch("/api/auth/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim() || undefined, bio: bio.trim() || undefined }),
+        body: JSON.stringify(updateData),
       });
+
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Update failed");
         return;
       }
+
       setSuccess(true);
       await refreshProfile();
       setTimeout(() => {
         onClose();
         setSuccess(false);
       }, 800);
-    } catch {
-      setError("Network error. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -107,6 +197,72 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Avatar */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+              Profile Picture
+            </label>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                {avatarPreview ? (
+                  <img
+                    src={avatarPreview}
+                    alt="Avatar preview"
+                    className="w-16 h-16 rounded-xl object-cover border-2"
+                    style={{ borderColor: "var(--border)" }}
+                  />
+                ) : (
+                  <div
+                    className="w-16 h-16 rounded-xl flex items-center justify-center text-lg font-bold text-white border-2"
+                    style={{
+                      background: "linear-gradient(135deg, #7c3aed, #2563eb)",
+                      borderColor: "var(--border)",
+                    }}>
+                    {(username || 'U').slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
+                    <Loader2 size={16} className="animate-spin text-white" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <div className="flex gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                    id="avatar-upload"
+                  />
+                  <label
+                    htmlFor="avatar-upload"
+                    className="inline-block px-3 py-1.5 rounded-lg text-sm border hover:bg-white/5 transition-colors cursor-pointer"
+                    style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>
+                    Choose Image
+                  </label>
+                  {avatarPreview && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAvatarFile(null);
+                        setAvatarPreview(null);
+                        setError(null);
+                      }}
+                      className="inline-block px-3 py-1.5 rounded-lg text-sm border hover:bg-red-500/10 transition-colors"
+                      style={{ borderColor: "var(--border)", color: "#ef4444" }}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                  JPG, PNG, GIF up to 5MB
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Username */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium" style={{ color: "var(--foreground)" }}>

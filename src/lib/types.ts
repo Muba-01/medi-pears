@@ -40,6 +40,7 @@ export interface Post {
   tokenReward: number;
   trustScore: number;
   createdAt: string;
+  updatedAt: string;
   tags: string[];
   imageUrl?: string;
   linkUrl?: string;

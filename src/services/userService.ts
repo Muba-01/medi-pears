@@ -121,7 +121,7 @@ export async function linkWalletToUser(
 
 export async function updateUser(
   userId: string,
-  updates: { username?: string; bio?: string }
+  updates: { username?: string; bio?: string; avatarUrl?: string }
 ): Promise<IUser | null> {
   await connectDB();
   if (!mongoose.Types.ObjectId.isValid(userId)) return null;

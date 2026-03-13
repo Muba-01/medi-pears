@@ -201,7 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setState((prev) => ({
           ...prev,
           username: data.username ?? prev.username,
-          avatarUrl: data.avatarUrl ?? prev.avatarUrl,
+          avatarUrl: 'avatarUrl' in data ? data.avatarUrl : prev.avatarUrl,
           email: data.email ?? prev.email,
           walletAddress: data.walletAddress ?? prev.walletAddress,
           walletLinked: data.walletLinked ?? prev.walletLinked,

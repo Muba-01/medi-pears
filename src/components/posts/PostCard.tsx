@@ -19,6 +19,7 @@ import {
 import { Post } from "@/lib/types";
 import { cn, formatNumber, timeAgo } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import EditPostModal from "./EditPostModal";
 
 interface PostCardProps {
   post: Post;
@@ -39,6 +40,9 @@ export default function PostCard({ post, compact = false, onPostDeleted }: PostC
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const handleShare = () => {
@@ -140,6 +144,31 @@ export default function PostCard({ post, compact = false, onPostDeleted }: PostC
     }
   };
 
+  const handleEdit = async (updatedData: { title: string; content: string; tags: string[] }) => {
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/posts/${post.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedData),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setEditError(data.error || "Failed to edit post");
+        return;
+      }
+      setShowEditModal(false);
+      setShowMenu(false);
+      // Refresh the page to show updated post
+      window.location.reload();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to edit post");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   return (
     <article
       className="rounded-xl border hover:border-purple-500/40 transition-all group"
@@ -203,6 +232,9 @@ export default function PostCard({ post, compact = false, onPostDeleted }: PostC
             </span>
             <span className="text-xs" style={{ color: "var(--muted)" }}>
               {timeAgo(post.createdAt)}
+              {new Date(post.updatedAt) > new Date(post.createdAt) && (
+                <span className="ml-1" style={{ color: "var(--muted)" }}>(edited)</span>
+              )}
             </span>
           </div>
 
@@ -342,13 +374,28 @@ export default function PostCard({ post, compact = false, onPostDeleted }: PostC
                   className="absolute right-0 mt-2 w-48 rounded-lg border shadow-lg z-50"
                   style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
                   {isPostOwner && (
-                    <button
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-red-500/10 transition-colors"
-                      style={{ color: "#ef4444" }}>
-                      <Trash2 size={14} />
-                      Delete Post
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          setShowEditModal(true);
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-white/5 transition-colors"
+                        style={{ color: "var(--foreground)" }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                        Edit Post
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-red-500/10 transition-colors"
+                        style={{ color: "#ef4444" }}>
+                        <Trash2 size={14} />
+                        Delete Post
+                      </button>
+                    </>
                   )}
                   {!isPostOwner && (
                     <div className="px-4 py-2 text-xs" style={{ color: "var(--muted)" }}>
@@ -397,6 +444,17 @@ export default function PostCard({ post, compact = false, onPostDeleted }: PostC
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Edit modal */}
+          {showEditModal && (
+            <EditPostModal
+              post={post}
+              onClose={() => setShowEditModal(false)}
+              onSave={handleEdit}
+              loading={editLoading}
+              error={editError}
+            />
           )}
         </div>
       </div>
