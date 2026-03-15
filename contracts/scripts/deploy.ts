@@ -12,7 +12,7 @@ async function main() {
 
   let oracleWallet = process.env.ORACLE_WALLET_ADDRESS;
   if (!oracleWallet || !ethers.isAddress(oracleWallet)) {
-    if (network.name === "hardhat") {
+    if (network.name === "hardhat" || network.name === "localhost") {
       oracleWallet = fallbackOracle.address;
       console.warn(`ORACLE_WALLET_ADDRESS not set. Using local fallback oracle: ${oracleWallet}`);
     } else {
@@ -55,6 +55,10 @@ async function main() {
   console.log("MediPearsToken deployed at:", tokenAddress);
   console.log("RewardsController deployed at:", controllerAddress);
   console.log("RewardsVault deployed at:", vaultAddress);
+  console.log("\n=== Add this to your frontend .env.local ===");
+  console.log(`NEXT_PUBLIC_TOKEN_ADDRESS=${tokenAddress}`);
+  console.log(`NEXT_PUBLIC_STAKING_ADDRESS=${vaultAddress}`);
+  console.log("=============================================\n");
 }
 
 main().catch((error) => {

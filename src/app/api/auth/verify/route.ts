@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyMessage } from "ethers";
 import { signJWT } from "@/lib/jwt";
 import { findOrCreateUserByWallet } from "@/services/userService";
+import { rewardsOracle } from "@/services/rewardsOracleService";
 
 const COOKIE_NAME = "mp_token";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -78,6 +79,9 @@ export async function POST(req: NextRequest) {
       // Non-fatal: proceed without DB
     }
   }
+  
+  // Trigger daily login reward asynchronously (fire and forget)
+  rewardsOracle.onDailyLogin(normalizedWalletAddress, dbUser?._id?.toString()).catch(console.error);
 
   const res = NextResponse.json({
     walletAddress: normalizedWalletAddress,

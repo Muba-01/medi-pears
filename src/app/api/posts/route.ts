@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/getAuthUser";
 import { getPosts, createPost } from "@/services/postService";
 import { CreatePostSchema } from "@/lib/validations";
+import { rewardsOracle } from "@/services/rewardsOracleService";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -42,6 +43,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const post = await createPost(parsed.data, user._id.toString());
+    
+    // Trigger blockchain reward asynchronously (fire and forget)
+    if (user.walletAddress) {
+      rewardsOracle.onPostCreated(user.walletAddress, post.id, user._id.toString()).catch(console.error);
+    }
+    
     return NextResponse.json({ post }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to create post";

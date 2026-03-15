@@ -39,6 +39,7 @@ export interface RewardsVaultInterface extends Interface {
       | "SILVER_THRESHOLD"
       | "getBoostBps"
       | "getRoleAdmin"
+      | "getUserStake"
       | "grantRole"
       | "hasRole"
       | "renounceRole"
@@ -112,6 +113,10 @@ export interface RewardsVaultInterface extends Interface {
   encodeFunctionData(
     functionFragment: "getRoleAdmin",
     values: [BytesLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getUserStake",
+    values: [AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "grantRole",
@@ -199,6 +204,10 @@ export interface RewardsVaultInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "getRoleAdmin",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getUserStake",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "grantRole", data: BytesLike): Result;
@@ -396,6 +405,12 @@ export interface RewardsVault extends BaseContract {
 
   getRoleAdmin: TypedContractMethod<[role: BytesLike], [string], "view">;
 
+  getUserStake: TypedContractMethod<
+    [user: AddressLike],
+    [[bigint, bigint] & { amount: bigint; unlockedAt: bigint }],
+    "view"
+  >;
+
   grantRole: TypedContractMethod<
     [role: BytesLike, account: AddressLike],
     [void],
@@ -481,6 +496,13 @@ export interface RewardsVault extends BaseContract {
   getFunction(
     nameOrSignature: "getRoleAdmin"
   ): TypedContractMethod<[role: BytesLike], [string], "view">;
+  getFunction(
+    nameOrSignature: "getUserStake"
+  ): TypedContractMethod<
+    [user: AddressLike],
+    [[bigint, bigint] & { amount: bigint; unlockedAt: bigint }],
+    "view"
+  >;
   getFunction(
     nameOrSignature: "grantRole"
   ): TypedContractMethod<

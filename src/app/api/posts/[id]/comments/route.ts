@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/getAuthUser";
 import { getCommentsByPost, createComment } from "@/services/commentService";
 import { CreateCommentSchema } from "@/lib/validations";
+import { rewardsOracle } from "@/services/rewardsOracleService";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -48,6 +49,12 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       user._id.toString(),
       parsed.data.parentCommentId
     );
+    
+    // Trigger blockchain reward asynchronously (fire and forget)
+    if (user.walletAddress) {
+      rewardsOracle.onCommentCreated(user.walletAddress, comment.id, user._id.toString()).catch(console.error);
+    }
+    
     return NextResponse.json({ comment }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to create comment";

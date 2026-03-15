@@ -2,6 +2,7 @@ import { Zap, Calendar, ExternalLink } from "lucide-react";
 import { shortenAddress } from "@/lib/utils";
 import Image from "next/image";
 import EditProfileButton from "./EditProfileButton";
+import TokenBalanceDisplay from "./TokenBalanceDisplay";
 
 interface ProfileHeaderProps {
   walletAddress?: string | null;
@@ -120,6 +121,12 @@ export default function ProfileHeader({
             color="#60a5fa"
           />
         </div>
+
+        {walletAddress && (
+          <div className="mt-4">
+            <TokenBalanceDisplay walletAddress={walletAddress} />
+          </div>
+        )}
       </div>
     </div>
   );

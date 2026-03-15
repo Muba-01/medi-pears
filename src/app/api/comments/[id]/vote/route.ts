@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/getAuthUser";
 import { voteComment } from "@/services/commentService";
 import { VoteSchema } from "@/lib/validations";
+import { rewardsOracle } from "@/services/rewardsOracleService";
+import Comment from "@/models/Comment";
+import { connectDB } from "@/lib/db";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -32,6 +35,26 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     if (!result) {
       return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     }
+    
+    // Trigger blockchain reward for upvotes asynchronously (fire and forget)
+    if (parsed.data.voteType === "up") {
+      try {
+        await connectDB();
+        const comment = await Comment.findById(id).populate("author");
+        if (comment && comment.author && typeof comment.author === "object" && "walletAddress" in comment.author) {
+          const author = comment.author as any;
+          rewardsOracle.onCommentUpvoted(
+            author.walletAddress,
+            id,
+            user._id.toString(),
+            author._id?.toString()
+          ).catch(console.error);
+        }
+      } catch (err) {
+        console.error("[RewardsOracle] Failed to fetch comment for reward:", err);
+      }
+    }
+    
     return NextResponse.json(result);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to vote on comment";

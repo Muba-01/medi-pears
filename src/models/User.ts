@@ -13,6 +13,14 @@ export interface IUser extends Document {
   googleLinked: boolean;
   authProvider: "wallet" | "google" | "email";
   joinedCommunities: mongoose.Types.ObjectId[];
+  // Anti-token farming fields
+  eligibleForRewards: boolean;
+  trustScoreAverage: number;
+  crediblePostCount: number;
+  rewardEligibilityCheckedAt?: Date;
+  // Anti-Sybil fields
+  signupIP?: string;
+  accountAgeMinimumMet: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +38,14 @@ const UserSchema = new Schema<IUser>(
     googleLinked: { type: Boolean, default: false },
     authProvider: { type: String, enum: ["wallet", "google", "email"], required: true },
     joinedCommunities: [{ type: Schema.Types.ObjectId, ref: "Community" }],
+    // Anti-token farming fields
+    eligibleForRewards: { type: Boolean, default: false },
+    trustScoreAverage: { type: Number, default: 0, min: 0, max: 1 },
+    crediblePostCount: { type: Number, default: 0, min: 0 },
+    rewardEligibilityCheckedAt: { type: Date, default: null },
+    // Anti-Sybil fields
+    signupIP: { type: String, default: null },
+    accountAgeMinimumMet: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

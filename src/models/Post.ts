@@ -1,6 +1,7 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 
 export type PostType = "text" | "image" | "link";
+export type AIStatus = "approved" | "rejected" | "pending";
 
 export interface IPost extends Document {
   _id: mongoose.Types.ObjectId;
@@ -17,6 +18,7 @@ export interface IPost extends Document {
   linkUrl?: string;
   commentCount: number;
   trustScore: number;
+  aiModerationStatus: AIStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,6 +38,7 @@ const PostSchema = new Schema<IPost>(
     linkUrl: { type: String, trim: true },
     commentCount: { type: Number, default: 0, min: 0 },
     trustScore: { type: Number, default: 0.5, min: 0, max: 1 },
+    aiModerationStatus: { type: String, enum: ["approved", "rejected", "pending"], default: "pending" },
   },
   { timestamps: true }
 );

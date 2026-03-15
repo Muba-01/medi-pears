@@ -84,6 +84,10 @@ contract RewardsVault is AccessControl {
         return 0;
     }
 
+    function getUserStake(address user) external view returns (uint256 amount, uint256 unlockedAt) {
+        return (stakedBalance[user], unlockTimestamp[user]);
+    }
+
     function _tierForAmount(uint256 amount) internal pure returns (Tier) {
         if (amount >= DIAMOND_THRESHOLD) return Tier.Diamond;
         if (amount >= GOLD_THRESHOLD) return Tier.Gold;

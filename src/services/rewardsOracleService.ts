@@ -1,6 +1,8 @@
 import { ethers } from "ethers";
 import type { RewardsController } from "../../contracts/typechain-types";
 import { RewardsController__factory } from "../../contracts/typechain-types";
+import { connectDB } from "@/lib/db";
+import User from "@/models/User";
 
 interface OracleConfig {
   rpcUrl: string;
@@ -98,13 +100,32 @@ class RewardsOracleService {
     walletAddress: string,
     rewardAmount: bigint,
     eventId: string,
-    eventType: string
+    eventType: string,
+    userId?: string
   ): Promise<void> {
     try {
       await this.initialize();
 
       if (!this.contract) {
         throw new Error("Contract not initialized");
+      }
+
+      // Check user eligibility if userId is provided
+      if (userId) {
+        await connectDB();
+        const user = await User.findById(userId).select("eligibleForRewards username").lean();
+        
+        if (!user) {
+          console.warn(`[RewardsOracle] User not found: ${userId}`);
+          return;
+        }
+
+        if (!user.eligibleForRewards) {
+          console.log(
+            `[RewardsOracle] User ${user.username} is not eligible for rewards. Event ${eventType} not rewarded.`
+          );
+          return;
+        }
       }
 
       // Validate wallet address
@@ -150,93 +171,107 @@ class RewardsOracleService {
   /**
    * Award tokens when a user creates a post
    * Fires asynchronously - does not block API response
+   * Only rewards if user is eligible
    */
-  onPostCreated(walletAddress: string, postId: string): void {
+  onPostCreated(walletAddress: string, postId: string, userId?: string): Promise<void> {
     const eventId = this.generateEventId("postCreated", postId);
-    this.executeReward(
+    return this.executeReward(
       walletAddress,
       REWARD_AMOUNTS.POST_CREATED,
       eventId,
-      "postCreated"
+      "postCreated",
+      userId
     ).catch(console.error);
   }
 
   /**
    * Award tokens when a user upvotes a post
    * Fires asynchronously - does not block API response
+   * Only rewards if user is eligible
    */
   onPostUpvoted(
     walletAddress: string,
     postId: string,
-    voterId: string
-  ): void {
+    voterId: string,
+    userId?: string
+  ): Promise<void> {
     const eventId = this.generateEventId("postUpvote", postId, voterId);
-    this.executeReward(
+    return this.executeReward(
       walletAddress,
       REWARD_AMOUNTS.POST_UPVOTED,
       eventId,
-      "postUpvote"
+      "postUpvote",
+      userId
     ).catch(console.error);
   }
 
   /**
    * Award tokens when a user creates a comment
    * Fires asynchronously - does not block API response
+   * Only rewards if user is eligible
    */
-  onCommentCreated(walletAddress: string, commentId: string): void {
+  onCommentCreated(walletAddress: string, commentId: string, userId?: string): Promise<void> {
     const eventId = this.generateEventId("commentCreated", commentId);
-    this.executeReward(
+    return this.executeReward(
       walletAddress,
       REWARD_AMOUNTS.COMMENT_CREATED,
       eventId,
-      "commentCreated"
+      "commentCreated",
+      userId
     ).catch(console.error);
   }
 
   /**
    * Award tokens when a user upvotes a comment
    * Fires asynchronously - does not block API response
+   * Only rewards if user is eligible
    */
   onCommentUpvoted(
     walletAddress: string,
     commentId: string,
-    voterId: string
-  ): void {
+    voterId: string,
+    userId?: string
+  ): Promise<void> {
     const eventId = this.generateEventId("commentUpvote", commentId, voterId);
-    this.executeReward(
+    return this.executeReward(
       walletAddress,
       REWARD_AMOUNTS.COMMENT_UPVOTED,
       eventId,
-      "commentUpvote"
+      "commentUpvote",
+      userId
     ).catch(console.error);
   }
 
   /**
    * Award tokens when a user joins a community
    * Fires asynchronously - does not block API response
+   * Only rewards if user is eligible
    */
-  onCommunityJoined(walletAddress: string, communitySlug: string): void {
+  onCommunityJoined(walletAddress: string, communitySlug: string, userId?: string): Promise<void> {
     const eventId = this.generateEventId("communityJoined", communitySlug);
-    this.executeReward(
+    return this.executeReward(
       walletAddress,
       REWARD_AMOUNTS.COMMUNITY_JOINED,
       eventId,
-      "communityJoined"
+      "communityJoined",
+      userId
     ).catch(console.error);
   }
 
   /**
    * Award tokens for daily login
    * Fires asynchronously - does not block API response
+   * Only rewards if user is eligible
    */
-  onDailyLogin(walletAddress: string): void {
+  onDailyLogin(walletAddress: string, userId?: string): Promise<void> {
     const dateKey = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
     const eventId = this.generateEventId("dailyLogin", walletAddress, dateKey);
-    this.executeReward(
+    return this.executeReward(
       walletAddress,
       REWARD_AMOUNTS.DAILY_LOGIN,
       eventId,
-      "dailyLogin"
+      "dailyLogin",
+      userId
     ).catch(console.error);
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/getAuthUser";
 import { toggleJoinCommunity } from "@/services/communityService";
+import { rewardsOracle } from "@/services/rewardsOracleService";
 
 interface RouteContext {
   params: Promise<{ slug: string }>;
@@ -16,6 +17,12 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   try {
     const result = await toggleJoinCommunity(slug, user._id.toString());
+    
+    // Trigger blockchain reward if joining (result.joined === true) asynchronously (fire and forget)
+    if (user.walletAddress && result?.joined) {
+      rewardsOracle.onCommunityJoined(user.walletAddress, slug, user._id.toString()).catch(console.error);
+    }
+    
     return NextResponse.json(result);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to join community";
