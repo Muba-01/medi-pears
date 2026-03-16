@@ -22,6 +22,26 @@ export async function GET(req: NextRequest) {
         try {
           const dbUser = await getUserByWallet(payload.walletAddress);
           if (dbUser) {
+<<<<<<< HEAD
+=======
+            const walletLinked = !!dbUser.walletAddress;
+            const googleLinked = !!dbUser.googleId;
+            const emailLinked = !!dbUser.email;
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
+            return NextResponse.json({
+              walletAddress: dbUser.walletAddress ?? null,
+              userId: dbUser._id.toString(),
+              username: dbUser.username,
+<<<<<<< HEAD
+              avatarUrl: dbUser.avatarUrl,
+              karma: dbUser.karma,
+              bio: dbUser.bio ?? null,
+              email: dbUser.email ?? null,
+              provider: dbUser.authProvider,
+              walletLinked: !!dbUser.walletAddress,
+              googleLinked: dbUser.authProvider === "google" || !!dbUser.googleLinked,
+              emailLinked: !!dbUser.email && dbUser.authProvider === "email",
+=======
               displayName: dbUser.displayName ?? dbUser.username,
               avatarUrl: dbUser.avatarUrl,
               karma: dbUser.karma,
@@ -38,6 +58,7 @@ export async function GET(req: NextRequest) {
               emailLinked,
               needsGoogleLink: !googleLinked,
               needsWalletLink: false,
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
             });
           }
         } catch { /* fall through */ }
@@ -55,13 +76,34 @@ export async function GET(req: NextRequest) {
   // 2. NextAuth session (Google OAuth)
   const session = await getServerSession(authOptions);
   if (session?.user?.id) {
+<<<<<<< HEAD
+=======
+    const provider = session.user.provider ?? "google";
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
+    if (process.env.MONGODB_URI) {
+      try {
+        const dbUser = await getUserById(session.user.id);
+        if (dbUser) {
+<<<<<<< HEAD
+=======
           const walletLinked = !!dbUser.walletAddress;
           const googleLinked = !!dbUser.googleId;
           const emailLinked = !!dbUser.email;
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
           return NextResponse.json({
             walletAddress: dbUser.walletAddress ?? null,
             userId: dbUser._id.toString(),
             username: dbUser.username,
+<<<<<<< HEAD
+            avatarUrl: dbUser.avatarUrl,
+            karma: dbUser.karma,
+            bio: dbUser.bio ?? null,
+            email: dbUser.email ?? null,
+            provider: dbUser.authProvider,
+            walletLinked: !!dbUser.walletAddress,
+            googleLinked: dbUser.authProvider === "google" || !!dbUser.googleLinked,
+            emailLinked: !!dbUser.email && dbUser.authProvider === "email",
+=======
             displayName: dbUser.displayName ?? dbUser.username,
             avatarUrl: dbUser.avatarUrl,
             karma: dbUser.karma,
@@ -78,6 +120,7 @@ export async function GET(req: NextRequest) {
             emailLinked,
             needsGoogleLink: provider === "wallet" && !googleLinked,
             needsWalletLink: provider === "google" && !walletLinked,
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
           });
         }
       } catch { /* fall through */ }
@@ -86,11 +129,15 @@ export async function GET(req: NextRequest) {
       walletAddress: null,
       userId: session.user.id,
       username: session.user.name ?? null,
+<<<<<<< HEAD
+      provider: "google",
+=======
       provider,
       onboardingCompleted: false,
       onboardingStep: 1,
       needsGoogleLink: false,
       needsWalletLink: provider === "google",
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
     });
   }
 

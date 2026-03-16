@@ -2,6 +2,16 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Post from "@/models/Post";
 import Community from "@/models/Community";
+<<<<<<< HEAD
+import User from "@/models/User";
+import { CreatePostInput } from "@/lib/validations";
+import { Post as PostFE, User as UserFE, Community as CommunityFE } from "@/lib/types";
+import { trustScoreService } from "@/services/trustScoreService";
+import { rewardEligibilityService } from "@/services/rewardEligibilityService";
+=======
+import { CreatePostInput } from "@/lib/validations";
+import { Post as PostFE, User as UserFE, Community as CommunityFE } from "@/lib/types";
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
 
 type PopulatedAuthor = {
   _id: mongoose.Types.ObjectId;
@@ -112,6 +122,15 @@ const POPULATE_COMMUNITY = "name slug description membersCount iconUrl bannerUrl
 
 export type GetPostsFilter = {
   communitySlug?: string;
+<<<<<<< HEAD
+  authorWallet?: string;
+  authorId?: string;
+=======
+  communityIds?: string[];
+  authorWallet?: string;
+  authorId?: string;
+  interests?: string[];
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
   sort?: "hot" | "new" | "top" | "rising";
   limit?: number;
   page?: number;
@@ -135,6 +154,18 @@ export async function getPosts(
     query.community = comm._id;
   }
 
+<<<<<<< HEAD
+=======
+  if (filter.communityIds && filter.communityIds.length > 0) {
+    const validCommunityIds = filter.communityIds
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    if (validCommunityIds.length > 0) {
+      query.community = { $in: validCommunityIds };
+    }
+  }
+
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
   if (filter.authorId && mongoose.Types.ObjectId.isValid(filter.authorId)) {
     query.author = new mongoose.Types.ObjectId(filter.authorId);
   } else if (filter.authorWallet) {
@@ -151,6 +182,22 @@ export async function getPosts(
     query.$or = [{ title: regex }, { content: regex }];
   }
 
+<<<<<<< HEAD
+=======
+  if (filter.interests && filter.interests.length > 0 && !filter.search) {
+    const interestRegexes = filter.interests.map((interest) =>
+      new RegExp(interest.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
+    );
+
+    const interestFilters: Record<string, unknown>[] = [];
+    for (const regex of interestRegexes) {
+      interestFilters.push({ title: regex }, { content: regex }, { tags: regex });
+    }
+
+    query.$or = [...(Array.isArray(query.$or) ? query.$or : []), ...interestFilters];
+  }
+
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
   const sortMap: Record<string, Record<string, number>> = {
     new: { createdAt: -1 },
     top: { score: -1, createdAt: -1 },
@@ -193,6 +240,40 @@ export async function getPostById(
   return serialized;
 }
 
+<<<<<<< HEAD
+=======
+async function getTrustScore(text: string): Promise<number> {
+  try {
+    const response = await fetch("http://localhost:5000/predict", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+      console.error(`ML service error: ${response.status} ${response.statusText}`);
+      return 0.5; // Default fallback score
+    }
+
+    const data = await response.json();
+    console.log("[DEBUG] ML service response:", data);
+    
+    // The ML service returns trust_index
+    const score = data.trust_index ?? data.trust_score ?? data.trustScore ?? 0.5;
+    console.log("[DEBUG] Extracted score:", score);
+    
+    const normalizedScore = Math.min(Math.max(typeof score === "number" ? score : 0.5, 0), 1);
+    console.log("[DEBUG] Normalized score:", normalizedScore);
+    return normalizedScore;
+  } catch (error) {
+    console.error("Failed to fetch trust score from ML service:", error);
+    return 0.5; // Default fallback score on error
+  }
+}
+
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
 export async function createPost(
   input: CreatePostInput,
   authorId: string
@@ -204,6 +285,26 @@ export async function createPost(
   }).lean();
   if (!community) throw new Error("Community not found");
 
+<<<<<<< HEAD
+  // Evaluate post credibility using trustScoreService
+  console.log("[POST_CREATE] Evaluating post credibility with trustScoreService");
+  const evaluation = await trustScoreService.evaluatePostCredibility(
+    input.title,
+    input.content
+  );
+  console.log("[POST_CREATE] Trust score result:", {
+    trustScore: evaluation.trustScore,
+    status: evaluation.status,
+    flags: evaluation.flags,
+    reasons: evaluation.reasons,
+  });
+=======
+  // Get trust score from ML service
+  const textToScore = input.content || input.title;
+  console.log("[DEBUG] Text to score:", textToScore);
+  const trustScore = await getTrustScore(textToScore);
+  console.log("[DEBUG] Trust score from AI service:", trustScore);
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
 
   const created = await Post.create({
     title: input.title,
@@ -214,12 +315,37 @@ export async function createPost(
     tags: input.tags ?? [],
     imageUrl: input.imageUrl || undefined,
     linkUrl: input.linkUrl || undefined,
+<<<<<<< HEAD
+    trustScore: evaluation.trustScore,
+    aiModerationStatus: evaluation.status,
+  });
+  console.log("[POST_CREATE] Post created with trustScore:", created.trustScore, "status:", created.aiModerationStatus);
+
+  // If post is approved and score meets threshold, increment user's credible post count
+  if (evaluation.status === "approved" && evaluation.trustScore >= 0.7) {
+    console.log("[POST_CREATE] Post approved - updating user credible post count");
+    await User.findByIdAndUpdate(
+      authorId,
+      { $inc: { crediblePostCount: 1 } },
+      { new: true }
+    );
+  }
+=======
+    trustScore,
+  });
+  console.log("[DEBUG] Post created with trustScore:", created.trustScore);
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
 
   const populated = await Post.findById(created._id)
     .populate<{ author: PopulatedAuthor }>("author", POPULATE_AUTHOR)
     .populate<{ community: PopulatedCommunity }>("community", POPULATE_COMMUNITY)
     .lean();
 
+<<<<<<< HEAD
+  console.log("[POST_CREATE] Post fetched from DB with trustScore:", populated?.trustScore);
+=======
+  console.log("[DEBUG] Post fetched from DB with trustScore:", populated?.trustScore);
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
   return serializePost(populated as unknown as LeanPost, authorId);
 }
 
@@ -305,10 +431,33 @@ export async function updatePost(
   // Determine if content or title changed
   const contentChanged = originalPost.content !== updates.content || originalPost.title !== updates.title;
   
+<<<<<<< HEAD
+  // Recalculate trustScore and AI moderation status if content changed
+=======
+  // Recalculate trustScore if content changed
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
   let trustScoreUpdate = {};
   if (contentChanged) {
     const textToScore = updates.content || updates.title;
     console.log("[DEBUG] updatePost - content changed, recalculating trustScore for text:", textToScore);
+<<<<<<< HEAD
+    const evaluation = await trustScoreService.evaluatePostCredibility(
+      updates.title || originalPost.title,
+      textToScore
+    );
+    console.log("[DEBUG] updatePost - evaluation result:", {
+      trustScore: evaluation.trustScore,
+      status: evaluation.status,
+    });
+    trustScoreUpdate = {
+      trustScore: evaluation.trustScore,
+      aiModerationStatus: evaluation.status,
+    };
+=======
+    const newTrustScore = await getTrustScore(textToScore);
+    console.log("[DEBUG] updatePost - new trustScore calculated:", newTrustScore);
+    trustScoreUpdate = { trustScore: newTrustScore };
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
   }
 
   // Update only the post owned by this user
