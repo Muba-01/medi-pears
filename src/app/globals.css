@@ -28,34 +28,6 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-<<<<<<< HEAD
-=======
-  transition: background-color 180ms ease, color 180ms ease;
-}
-
-a,
-button,
-input,
-textarea,
-select,
-header,
-nav,
-main,
-section,
-article,
-aside,
-footer,
-div {
-  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
-}
-
-.theme-hover-surface:hover {
-  background: var(--hover-surface);
-}
-
-.theme-hover-accent:hover {
-  color: var(--accent-light);
->>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
 }
 
 ::-webkit-scrollbar {

@@ -105,41 +105,6 @@ export async function linkGoogleToUser(
   );
 }
 
-<<<<<<< HEAD
-=======
-export async function linkEmailToUser(
-  userId: string,
-  email: string,
-  passwordHash: string
-): Promise<IUser | null> {
-  await connectDB();
-  if (!mongoose.Types.ObjectId.isValid(userId)) return null;
-
-  const lowerEmail = email.toLowerCase();
-  const userObjectId = new mongoose.Types.ObjectId(userId);
-
-  const emailConflict = await User.findOne({
-    email: lowerEmail,
-    _id: { $ne: userObjectId },
-  });
-  if (emailConflict) {
-    throw new Error("Email already linked to another account");
-  }
-
-  const user = await User.findById(userObjectId).select("+passwordHash");
-  if (!user) return null;
-
-  if (user.email && user.email !== lowerEmail) {
-    throw new Error("Another email is already linked to this account");
-  }
-
-  user.email = lowerEmail;
-  user.passwordHash = passwordHash;
-  await user.save();
-  return user;
-}
-
->>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
 export async function updateUser(
   userId: string,
   updates: { username?: string; bio?: string; avatarUrl?: string }
