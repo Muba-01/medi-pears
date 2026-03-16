@@ -22,8 +22,9 @@ export async function GET(req: NextRequest) {
         try {
           const dbUser = await getUserByWallet(payload.walletAddress);
           if (dbUser) {
-displayName: dbUser.displayName ?? dbUser.username,
-              avatarUrl: dbUser.avatarUrl,
+return NextResponse.json({
+    displayName: dbUser.displayName ?? dbUser.username,
+    avatarUrl: dbUser.avatarUrl,
               karma: dbUser.karma,
               bio: dbUser.bio ?? null,
               birthday: dbUser.birthday ?? null,

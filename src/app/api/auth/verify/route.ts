@@ -70,16 +70,10 @@ let isNewUser = false;
       // Non-fatal: proceed without DB
     }
   }
->>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
-
-  const res = NextResponse.json({
+const res = NextResponse.json({
     walletAddress: normalizedWalletAddress,
     username: dbUser?.username ?? null,
-<<<<<<< HEAD
-    userId: dbUser?._id?.toString() ?? null,
-=======
-    displayName: dbUser?.displayName ?? dbUser?.username ?? null,
-    userId: dbUser?._id?.toString() ?? null,
+userId: dbUser?._id?.toString() ?? null,
     onboardingCompleted: !!dbUser?.onboardingCompleted,
     onboardingStep: dbUser?.onboardingStep ?? 1,
     email: dbUser?.email ?? null,
