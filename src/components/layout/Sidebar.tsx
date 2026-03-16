@@ -11,11 +11,7 @@ export default async function Sidebar() {
   } catch { /* DB not ready */ }
 
   return (
-<<<<<<< HEAD
-    <aside className="w-64 flex-shrink-0 hidden lg:flex flex-col gap-4">
-=======
     <aside className="w-64 shrink-0 hidden lg:flex flex-col gap-4">
->>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
       {/* Communities */}
       <div
         className="rounded-xl border overflow-hidden"
@@ -31,11 +27,7 @@ export default async function Sidebar() {
             <Link
               href="/explore"
               className="text-xs font-medium transition-colors hover:opacity-80"
-<<<<<<< HEAD
-              style={{ color: "#a78bfa" }}>
-=======
               style={{ color: "var(--accent-light)" }}>
->>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
               See all
             </Link>
           </div>
@@ -50,11 +42,7 @@ export default async function Sidebar() {
             <Link
               href="/explore"
               className="flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-lg font-medium mt-1"
-<<<<<<< HEAD
-              style={{ background: "var(--accent-muted)", color: "#a78bfa" }}>
-=======
               style={{ background: "var(--accent-muted)", color: "var(--accent-light)" }}>
->>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
               <Plus size={12} />
               Create Community
             </Link>
@@ -65,19 +53,11 @@ export default async function Sidebar() {
               <Link
                 key={c._id.toString()}
                 href={`/p/${c.slug}`}
-<<<<<<< HEAD
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors"
-                style={{ borderBottom: "1px solid var(--border)" }}>
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)" }}>
-=======
                 className="flex items-center gap-3 px-4 py-2.5 theme-hover-surface transition-colors"
                 style={{ borderBottom: "1px solid var(--border)" }}>
                 <div
                   className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
                   style={{ background: "var(--brand-gradient)", color: "var(--text-on-accent)" }}>
->>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
                   {c.slug.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -92,13 +72,8 @@ export default async function Sidebar() {
             ))}
             <Link
               href="/explore"
-<<<<<<< HEAD
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium hover:bg-white/5 transition-colors"
-              style={{ color: "#a78bfa" }}>
-=======
               className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium theme-hover-surface transition-colors"
               style={{ color: "var(--accent-light)" }}>
->>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
               <Compass size={12} />
               Explore all communities
             </Link>
@@ -118,11 +93,7 @@ export default async function Sidebar() {
           Connect your wallet to participate.
         </p>
         <div className="flex flex-col gap-2 text-xs" style={{ color: "var(--muted)" }}>
-<<<<<<< HEAD
-          <Link href="/explore" className="hover:text-purple-400 transition-colors">
-=======
           <Link href="/explore" className="theme-hover-accent transition-colors">
->>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
             Explore communities →
           </Link>
           <SidebarCreateButton />
