@@ -260,15 +260,6 @@ export default function Navbar() {
             />
           </div>
           <nav className="flex flex-col gap-1">
-<<<<<<< HEAD
-=======
-            <button
-              onClick={toggleTheme}
-              className="px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors text-left"
-              style={{ color: "var(--foreground)" }}>
-              {theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            </button>
->>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
             {[
               { href: "/", label: "Home" },
               { href: "/explore", label: "Explore" },
