@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/getAuthUser";
 import { votePost } from "@/services/postService";
 import { VoteSchema } from "@/lib/validations";
+<<<<<<< HEAD
 import { rewardsOracle } from "@/services/rewardsOracleService";
 import Post from "@/models/Post";
 import { connectDB } from "@/lib/db";
+=======
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -38,6 +41,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     if (!updated) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
+<<<<<<< HEAD
     
     // Trigger blockchain reward for upvotes asynchronously (fire and forget)
     if (parsed.data.voteType === "up") {
@@ -58,6 +62,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       }
     }
     
+=======
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
     return NextResponse.json({ post: updated });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to vote on post";

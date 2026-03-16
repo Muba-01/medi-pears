@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { verifyJWT } from "@/lib/jwt";
 
+<<<<<<< HEAD
 const PROTECTED_PATHS = ["/create"];
+=======
+const PROTECTED_PATHS = ["/create", "/onboarding"];
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
 const WALLET_COOKIE = "mp_token";
 
 export async function proxy(req: NextRequest) {
@@ -33,5 +37,9 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
+<<<<<<< HEAD
   matcher: ["/create", "/create/:path*"],
+=======
+  matcher: ["/create", "/create/:path*", "/onboarding", "/onboarding/:path*"],
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
 };

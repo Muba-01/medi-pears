@@ -42,6 +42,7 @@ export default async function CommunityPage({ params, searchParams }: PageProps)
         <div
           className="h-28 flex items-end pb-0 px-6"
           style={{
+<<<<<<< HEAD
             background: "linear-gradient(135deg, #3b1f6e 0%, #1e3a8a 60%, #0f172a 100%)",
           }}>
           <div className="flex items-center gap-4 translate-y-8">
@@ -49,6 +50,16 @@ export default async function CommunityPage({ params, searchParams }: PageProps)
               className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white border-4"
               style={{
                 background: "linear-gradient(135deg, #7c3aed, #2563eb)",
+=======
+            background: "var(--hero-gradient)",
+          }}>
+          <div className="flex items-center gap-4 translate-y-8">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold border-4"
+              style={{
+                background: "var(--brand-gradient)",
+                color: "var(--text-on-accent)",
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
                 borderColor: "var(--surface)",
               }}>
               {slug.slice(0, 2).toUpperCase()}

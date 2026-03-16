@@ -18,6 +18,10 @@ const config: HardhatUserConfig = {
   },
   paths: {
     sources: "./contracts",
+<<<<<<< HEAD
+=======
+    scripts: "./scripts",
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts",

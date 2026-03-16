@@ -19,8 +19,12 @@
       }
     ],
     "paths": {
+<<<<<<< HEAD
       "@/*": ["./src/*"],
       "@contracts/*": ["./contracts/typechain-types/*"]
+=======
+      "@/*": ["./src/*"]
+>>>>>>> 285550973379e98ffdd5e0ae52763a57b765120a
     }
   },
   "include": [
